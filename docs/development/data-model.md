@@ -60,6 +60,28 @@ optional fields at all is ONLINE.
 Each state comes from a single sample. Smoothing, if needed, belongs in the
 UI layer.
 
+## Diagnostics checks
+
+`evaluateChecks()` ([Diagnostics.cpp](../../firmware/src/starlink/Diagnostics.cpp))
+maps the status onto nine checks, each with a level (OK / INFO / WARN / FAIL /
+UNKNOWN) and a short detail. Every dish alert is routed to exactly one
+check. Alerts without a natural home, including alert types added in newer
+dish firmware, go to **ALERTS**, so none are hidden.
+
+Things to know:
+
+- **HARDWARE** uses the `scp`, `l1l2`, `xphy` and `aap` ready states.
+  `cady` is ignored: the reference rev4 dish reports it as false while
+  working normally.
+- **RF** uses the `rf` ready state, `is_snr_persistently_low`,
+  `lower_signal_than_predicted` and `is_snr_above_noise_floor`.
+- **OBSTRUCTION** reports the share of sky but gives no verdict on it,
+  because Starlink publishes no threshold. It only warns when the dish says
+  it is obstructed right now.
+- A check the dish doesn't report is UNKNOWN (`?` and `--`), never OK.
+- Without a fresh poll, every check reads UNKNOWN. Old data is not shown as
+  current.
+
 ## Tests
 
 ```sh

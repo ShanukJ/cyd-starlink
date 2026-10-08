@@ -6,10 +6,16 @@ local network. No cloud, no Starlink account, no Home Assistant, no MQTT,
 no extra server.
 
 <p>
-  <img src="docs/images/dashboard-portrait.png" width="240" alt="Dashboard: state, download, upload, latency, obstruction, signal, uptime">
-  <img src="docs/images/history-portrait.png" width="240" alt="History: 15-minute throughput and latency graphs">
-  <img src="docs/images/alignment-portrait.png" width="240" alt="Alignment: dish vs target pointing with guidance">
-  <img src="docs/images/diagnostics-portrait.png" width="240" alt="Diagnostics: per-subsystem checks and versions">
+  <img src="docs/images/dashboard-portrait.png" width="200" alt="Dashboard: state, download and upload with 15-minute peaks, latency, obstruction, signal, uptime">
+  <img src="docs/images/history-portrait.png" width="200" alt="History: 15-minute throughput and latency graphs">
+  <img src="docs/images/alignment-portrait.png" width="200" alt="Alignment: dish vs target pointing with guidance">
+  <img src="docs/images/diagnostics-portrait.png" width="200" alt="Diagnostics: per-subsystem checks and versions">
+</p>
+<p>
+  <img src="docs/images/dashboard-landscape.png" width="400" alt="Dashboard in landscape">
+  <img src="docs/images/history-landscape.png" width="400" alt="History in landscape">
+  <img src="docs/images/alignment-landscape.png" width="400" alt="Alignment in landscape">
+  <img src="docs/images/diagnostics-landscape.png" width="400" alt="Diagnostics in landscape">
 </p>
 
 > **Status: v0.1.0 release candidate.** Runs on the ESP32-2432S028 (ST7789

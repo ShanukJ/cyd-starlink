@@ -1,0 +1,95 @@
+name: CI
+
+# Every push / PR: host unit tests + release builds for all boards.
+# Tag v*: additionally publish a GitHub Release and deploy the web flasher
+# (with the firmware) to GitHub Pages. The flasher must serve the firmware
+# itself: browsers can't fetch GitHub Release assets cross-origin.
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # tags, for the version
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.platformio
+            firmware/.pio/libdeps
+          key: pio-${{ runner.os }}-${{ hashFiles('firmware/platformio.ini') }}
+
+      - name: Install PlatformIO
+        run: pip install platformio
+
+      - name: Host unit tests
+        working-directory: firmware
+        run: pio test -e native
+
+      - name: Tag matches VERSION file
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          if [ "${GITHUB_REF_NAME#v}" != "$(cat VERSION)" ]; then
+            echo "Tag $GITHUB_REF_NAME does not match VERSION $(cat VERSION)"; exit 1
+          fi
+
+      - name: Build all boards
+        working-directory: firmware
+        run: python scripts/release.py
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: firmware
+          path: dist/firmware
+
+      - uses: actions/upload-pages-artifact@v3
+        if: startsWith(github.ref, 'refs/tags/v')
+        with:
+          path: dist/site
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: firmware
+          path: firmware
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" \
+            --title "Starlink Monitor ${GITHUB_REF_NAME#v}" --generate-notes \
+            firmware/*.bin firmware/SHA256SUMS
+
+  pages:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4

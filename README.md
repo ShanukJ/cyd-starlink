@@ -1,140 +1,114 @@
 # Starlink Monitor
 
 A standalone Starlink status display for cheap ESP32 touchscreen boards
-("Cheap Yellow Display"). It talks directly to your Starlink dish on the
-local network. It needs no cloud, no account, no Home Assistant, no MQTT and
+("Cheap Yellow Display"). It talks directly to your Starlink dish on your
+local network. No cloud, no Starlink account, no Home Assistant, no MQTT,
 no extra server.
 
-> **Status: early development (v0.1.0, Milestone 9 — web settings).**
-> The firmware joins your WiFi and shows live dish status, 15-minute
-> history graphs, pointing and diagnostics, with a settings page in your
-> browser. Release packaging and a web flasher come next.
-
 <p>
-  <img src="docs/images/dashboard-portrait.png" width="240" alt="Dashboard in portrait: download, upload, latency, obstruction, signal, uptime">
+  <img src="docs/images/dashboard-portrait.png" width="240" alt="Dashboard: state, download, upload, latency, obstruction, signal, uptime">
   <img src="docs/images/history-portrait.png" width="240" alt="History: 15-minute throughput and latency graphs">
-  <img src="docs/images/alignment-portrait.png" width="240" alt="Alignment: top-down plot of dish vs target pointing, azimuth/elevation table, guidance">
-  <img src="docs/images/diagnostics-portrait.png" width="240" alt="Diagnostics: per-subsystem checks and dish/monitor versions">
-  <img src="docs/images/dashboard-landscape.png" width="320" alt="Dashboard in landscape">
+  <img src="docs/images/alignment-portrait.png" width="240" alt="Alignment: dish vs target pointing with guidance">
+  <img src="docs/images/diagnostics-portrait.png" width="240" alt="Diagnostics: per-subsystem checks and versions">
 </p>
 
-## Supported hardware
+> **Status: v0.1.0 release candidate.** Runs on the ESP32-2432S028 (ST7789
+> version), tested against a real dish.
 
-| Board | Display | Touch | Status |
-|---|---|---|---|
-| ESP32-2432S028 (ST7789) | 2.8" 240×320 ST7789 | XPT2046 | hardware verified |
+## Features
 
-Notes on board variants and pinouts are in [docs/hardware](docs/hardware/).
+- **Dashboard:** dish state (ONLINE, DEGRADED, OFFLINE, ERROR,
+  CONNECTING), shown as a word and a symbol, not just a colour. Also
+  download, upload, latency, obstruction, signal quality and uptime.
+- **History:** 15-minute throughput and latency graphs, filled from the
+  dish's own history the moment the monitor starts.
+- **Alignment:** where the dish points versus where Starlink wants it to,
+  with plain guidance ("Turn 13° clockwise · Raise 4.2°").
+- **Diagnostics:** hardware self-test, RF, GPS, network, thermal,
+  obstruction, Ethernet, alerts and software update, plus versions.
+- **Honest data:** a value the dish doesn't report shows as `--`, never as
+  a made-up 0. If the dish disappears, you see how long ago it was last
+  seen, and the monitor keeps retrying.
+- **Browser settings** at `http://starlink-monitor.local/`, and WiFi setup
+  from your phone with a QR code.
+- Portrait or landscape. Swipe between pages, or tap the page dots.
 
-## Building
+## Hardware
 
-Requires [PlatformIO](https://platformio.org/) (CLI or the VS Code extension).
+| Board | Status |
+|---|---|
+| ESP32-2432S028, **ST7789** display, XPT2046 touch | ✅ supported |
+| ESP32-2432S028, ILI9341 display | not yet |
 
-```sh
-cd firmware
-pio run -e cyd_2432s028_st7789                 # build
-pio run -e cyd_2432s028_st7789 -t upload       # flash over USB
-pio device monitor                             # serial log, 115200 baud
-```
+This board is sold with two different display chips:
+[how to tell which one you have](docs/hardware/README.md).
 
-Host unit tests (decoder and health logic, run with sanitizers):
+## Install
 
-```sh
-pio test -e native
-```
+Use the **web installer** in Chrome or Edge on a computer: plug the
+board in over USB, pick it from the list and click **Connect**. No
+software to install. Release images for esptool are also available.
 
-If the upload can't find the port, pass `--upload-port /dev/cu.usbserial-XXXX`.
-Some boards also need you to hold **BOOT** while the upload starts.
+→ [Installation guide](docs/installation/README.md)
 
-## First-time setup
+## First setup
 
-1. Power the monitor. With no saved network it starts a setup WiFi network
-   called `STARLINK-MONITOR-XXXX` and shows that name, a password and a QR
-   code on screen.
-2. Scan the QR code with your phone, or join that network by hand with the
-   password shown on screen.
-3. The setup page should open automatically. If it doesn't, browse to
-   `http://192.168.4.1`.
-4. Pick the WiFi network that can reach your dish. This is usually the
-   Starlink router's own network. Enter its password, keep the dish address
-   at `192.168.100.1`, and press **Save & connect**.
+1. The screen shows a WiFi network `STARLINK-MONITOR-XXXX`, a password and
+   a QR code.
+2. Join it with your phone. The setup page opens (or go to
+   `http://192.168.4.1`).
+3. Pick the WiFi network that can reach your dish (usually the Starlink
+   router's) and save.
 
-The monitor remembers the network and reconnects on its own after power
-cuts and router reboots. To change WiFi later, **hold the BOOT button for
-3 seconds** to reopen setup. If the saved network can't be joined 3 times
-in a row after power-up, setup also reopens on its own.
-
-The setup network uses WPA2 with a new random password each time it starts.
-The password only appears on the device's own screen (and serial log).
+The setup network uses WPA2 with a new random password each time. The
+password is only shown on the device's own screen.
 
 ## Using it
 
-- The **dashboard** shows the dish's state (ONLINE, DEGRADED, OFFLINE,
-  ERROR or CONNECTING, always as a word and a symbol, not just a colour),
-  plus download, upload, latency, obstruction, signal quality and uptime.
-  Values the dish doesn't report show as `--`, never as a made-up 0.
-- If the dish stops answering, the dashboard switches to an OFFLINE panel
-  showing how long ago the dish was last seen, and keeps retrying.
-- **Swipe left/right** (or tap the page dots at the bottom) to switch between
-  the dashboard, **history**, **alignment** and **diagnostics** pages.
-  History graphs the last 15 minutes of download/upload and latency. Right
-  after power-up it is filled from the dish's own per-second history, so
-  the graphs aren't empty; gaps in the data show as gaps. Diagnostics lists
-  hardware self-test, RF, GPS, network, thermal, obstruction, Ethernet,
-  other alerts and software update, plus dish and monitor versions and the
-  monitor's IP address.
-- The **alignment** page Alignment shows where the dish
-  points versus where Starlink wants it to point, with plain guidance such
-  as "Turn 13° clockwise · Raise 4.2°". It doesn't judge what counts as
-  "aligned", because Starlink publishes no tolerance.
-- **Long-press the dashboard for 1.5 s** to open the hardware test screen
-  (touch, colours, rotation, brightness). Use ◀ to go back.
-- **Hold BOOT for 3 s** to open WiFi setup.
-
-## Settings in your browser
-
-Once the monitor is on your network, open **http://starlink-monitor.local/**
-(or the IP address shown on the diagnostics page) from a phone or computer
-on the same network. The page shows live status and lets you change:
-
-- WiFi network (scan list included; the saved password is never shown)
-- dish IP address and refresh interval (1 or 2 seconds)
-- display brightness and orientation (applied immediately)
-- restart and factory reset
-
-The same page is the setup portal on the `STARLINK-MONITOR-XXXX` network.
-
-There is no login: anyone on your local network can open the page, as with
-most home appliances. The page is protected against the usual browser-based
-attacks: other websites can't change settings through your browser, and
-the monitor only answers to its own name or IP address.
-
-## Developer serial commands
-
-At 115200 baud, one command per line:
-
-| Command | Effect |
+| Action | How |
 |---|---|
-| `screenshot` | send the current screen (use `firmware/scripts/screenshot.py`) |
-| `page <n>` | show page n (0 dashboard, 1 history, 2 alignment, 3 diagnostics) |
-| `rotate <r>` | set display rotation 0–3 (not saved) |
+| Switch page | swipe left/right, or tap the dots at the bottom |
+| Settings | `http://starlink-monitor.local/`, or the IP on the diagnostics page |
+| Reopen WiFi setup | hold **BOOT** for 3 seconds |
+| Hardware test screen | long-press the dashboard for 1.5 seconds |
+
+The settings page covers WiFi, dish address, refresh interval (1 or 2 s),
+brightness, orientation, restart and factory reset. There is no login:
+anyone on your local network can open it, as with most home appliances.
+Other websites can't change settings through your browser, and the
+monitor only answers to its own name or IP address.
+
+## Privacy
+
+The monitor only talks to your dish and to devices on your own network.
+It sends nothing to the internet. It doesn't use the internet at all,
+including for time, so "last seen" is shown as "2 min ago" rather than a
+clock time.
+
+## Documentation
+
+- [Installation](docs/installation/README.md) · [Troubleshooting](docs/troubleshooting.md)
+- [Supported hardware](docs/hardware/README.md) · [ESP32-2432S028 ST7789 details](docs/hardware/esp32-2432s028-st7789.md)
+- [Architecture](docs/development/architecture.md) · [Data model](docs/development/data-model.md) ·
+  [Starlink local API notes](docs/protocol/starlink-grpc-web.md) · [Releasing](docs/development/release.md)
+- [Contributing](CONTRIBUTING.md) · [Changelog](CHANGELOG.md)
+
+## Building from source
 
 ```sh
-~/.platformio/penv/bin/python firmware/scripts/screenshot.py /dev/cu.usbserial-XXXX shot.png --scale 2
+cd firmware
+pio run -e cyd_2432s028_st7789 -t upload   # build + flash (PlatformIO)
+pio test -e native                         # host unit tests
 ```
 
-## Project layout
-
-```
-firmware/            PlatformIO project
-  src/hardware/      hardware profiles, driver interfaces, drivers
-  src/ui/            LVGL port and screens
-  include/lv_conf.h  LVGL configuration
-docs/                hardware notes, architecture
-```
-
-See [docs/development/architecture.md](docs/development/architecture.md).
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the development setup, the
+serial developer commands (`screenshot`, `page`, `rotate`) and how to add a
+board.
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE). Uses [LVGL](https://lvgl.io) (MIT),
+[LovyanGFX](https://github.com/lovyan03/LovyanGFX) (MIT/BSD) and the
+Montserrat font (SIL OFL 1.1). The web installer uses
+[ESP Web Tools](https://esphome.github.io/esp-web-tools/) (Apache 2.0).
+Not affiliated with SpaceX or Starlink.

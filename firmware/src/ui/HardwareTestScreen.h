@@ -19,6 +19,7 @@ public:
     using Callback = void (*)(void* ctx);
     void build(Callback onBack, void* ctx);
     lv_obj_t* screen() const { return _screen; }
+    bool built() const { return _screen != nullptr; }
     void setWifiStatus(const net::WifiStatus& s);
     void setStarlink(const starlink::StarlinkSnapshot& s);
 
@@ -34,6 +35,7 @@ private:
     static void onRotate(lv_event_t* e);
     static void onBrightness(lv_event_t* e);
     static void onBackClicked(lv_event_t* e);
+    void onDeleted();
 
     hw::Board& _board;
     LvglPort& _port;
@@ -47,7 +49,8 @@ private:
     lv_obj_t* _touchValue = nullptr;
     lv_obj_t* _coords = nullptr;
     lv_obj_t* _raw = nullptr;
-    lv_obj_t* _crosshair = nullptr;
+    lv_obj_t* _crosshair = nullptr;  // on the top layer: not deleted with the screen
+    lv_timer_t* _timer = nullptr;
 
     uint32_t _shownPressCount = UINT32_MAX;
     bool _shownPressed = false;

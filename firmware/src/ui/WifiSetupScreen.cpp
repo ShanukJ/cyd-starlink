@@ -26,6 +26,11 @@ void WifiSetupScreen::build(CloseFn onClose, void* ctx) {
     _ctx = ctx;
 
     _screen = lv_obj_create(nullptr);
+    // Screens are built on demand and deleted when not shown (saves heap);
+    // drop every pointer into the LVGL tree when that happens.
+    lv_obj_add_event_cb(
+        _screen, [](lv_event_t* e) { static_cast<WifiSetupScreen*>(lv_event_get_user_data(e))->onDeleted(); },
+        LV_EVENT_DELETE, this);
     lv_obj_set_style_bg_color(_screen, lv_color_hex(theme::kBg), 0);
     lv_obj_set_style_bg_opa(_screen, LV_OPA_COVER, 0);
     lv_obj_set_style_pad_all(_screen, 10, 0);
@@ -71,6 +76,7 @@ void WifiSetupScreen::build(CloseFn onClose, void* ctx) {
 }
 
 void WifiSetupScreen::update(const net::WifiStatus& s) {
+    if (!built()) return;
     char qr[sizeof(_qrText)];
     snprintf(qr, sizeof(qr), "WIFI:T:WPA;S:%s;P:%s;;", s.apSsid, s.apPassword);
     if (strcmp(qr, _qrText) != 0) {

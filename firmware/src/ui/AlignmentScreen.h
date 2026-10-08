@@ -16,9 +16,14 @@ public:
     void build();
     void update(const starlink::StarlinkSnapshot& s);
     lv_obj_t* screen() const { return _screen; }
+    bool built() const { return _screen != nullptr; }
 
 private:
     void applyLayout(bool landscape);
+    void onDeleted() {
+        _screen = nullptr;
+        _layoutApplied = false;
+    }
 
     lv_obj_t* _screen = nullptr;
     lv_obj_t* _attitude = nullptr;

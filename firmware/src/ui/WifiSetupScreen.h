@@ -15,9 +15,15 @@ public:
     void build(CloseFn onClose, void* ctx);
     void update(const net::WifiStatus& s);
     lv_obj_t* screen() const { return _screen; }
+    bool built() const { return _screen != nullptr; }
 
 private:
     static void onCloseClicked(lv_event_t* e);
+    void onDeleted() {
+        _screen = nullptr;
+        _qrText[0] = '\0';
+        _stateText[0] = '\0';
+    }
 
     lv_obj_t* _screen = nullptr;
     lv_obj_t* _close = nullptr;

@@ -49,6 +49,11 @@ void HardwareTestScreen::build(Callback onBack, void* ctx) {
     _ctx = ctx;
     const auto& status = _board.status();
     _screen = lv_obj_create(nullptr);
+    // Screens are built on demand and deleted when not shown (saves heap);
+    // drop every pointer into the LVGL tree when that happens.
+    lv_obj_add_event_cb(
+        _screen, [](lv_event_t* e) { static_cast<HardwareTestScreen*>(lv_event_get_user_data(e))->onDeleted(); },
+        LV_EVENT_DELETE, this);
     lv_obj_t* scr = _screen;
     lv_obj_set_style_bg_color(scr, lv_color_hex(kBg), 0);
     lv_obj_set_style_bg_opa(scr, LV_OPA_COVER, 0);
@@ -147,7 +152,7 @@ void HardwareTestScreen::build(Callback onBack, void* ctx) {
     lv_obj_remove_flag(_crosshair, LV_OBJ_FLAG_CLICKABLE);
     lv_obj_add_flag(_crosshair, LV_OBJ_FLAG_HIDDEN);
 
-    lv_timer_create(onTimer, 50, this);
+    _timer = lv_timer_create(onTimer, 50, this);
 }
 
 lv_obj_t* HardwareTestScreen::addRow(lv_obj_t* parent, const char* name) {
@@ -179,7 +184,26 @@ void HardwareTestScreen::refreshDisplayRow() {
     setRow(_displayValue, _board.status().displayOk ? Mark::Ok : Mark::Fail, buf);
 }
 
+void HardwareTestScreen::onDeleted() {
+    lv_timer_delete(_timer);
+    lv_obj_delete(_crosshair);
+    _timer = nullptr;
+    _crosshair = nullptr;
+    _screen = nullptr;
+    // Forget what was shown so a rebuilt screen is filled in from scratch.
+    _shownPressCount = UINT32_MAX;
+    _shownPressed = false;
+    _shownPoint = {-1, -1};
+    _shownRaw = {UINT16_MAX, UINT16_MAX, 0};
+    _shownIrq = -2;
+    _shownWifiMark = Mark::NotImplemented;
+    strlcpy(_shownWifiText, "--", sizeof(_shownWifiText));
+    _shownStarlinkMark = Mark::NotImplemented;
+    strlcpy(_shownStarlinkText, "--", sizeof(_shownStarlinkText));
+}
+
 void HardwareTestScreen::setWifiStatus(const net::WifiStatus& s) {
+    if (!built()) return;
     Mark mark = Mark::Warn;
     char text[24];
     switch (s.sta) {
@@ -211,6 +235,7 @@ void HardwareTestScreen::setWifiStatus(const net::WifiStatus& s) {
 }
 
 void HardwareTestScreen::setStarlink(const starlink::StarlinkSnapshot& s) {
+    if (!built()) return;
     using starlink::HealthState;
     Mark mark = Mark::NotImplemented;
     char text[24];

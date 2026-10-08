@@ -16,6 +16,7 @@ public:
     void build(const char* boardName);
     void update(const starlink::StarlinkSnapshot& s, const net::WifiStatus& wifi);
     lv_obj_t* screen() const { return _screen; }
+    bool built() const { return _screen != nullptr; }
 
 private:
     struct Row {
@@ -27,6 +28,10 @@ private:
     };
 
     void applyLayout(bool landscape);
+    void onDeleted() {
+        _screen = nullptr;
+        _layoutApplied = false;
+    }
 
     lv_obj_t* _screen = nullptr;
     lv_obj_t* _summary = nullptr;

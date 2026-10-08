@@ -17,6 +17,7 @@ public:
     void build(Callback onLongPress, void* ctx);
     void update(const starlink::StarlinkSnapshot& s, uint32_t nowMs);
     lv_obj_t* screen() const { return _screen; }
+    bool built() const { return _screen != nullptr; }
 
 private:
     struct Metric {
@@ -35,6 +36,7 @@ private:
     void showPanel(const starlink::StarlinkSnapshot& s, const starlink::Health& h, uint32_t now);
 
     static void onLongPressed(lv_event_t* e);
+    void onDeleted();
 
     lv_obj_t* _screen = nullptr;
     lv_obj_t* _badge = nullptr;

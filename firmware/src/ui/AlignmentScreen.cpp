@@ -69,6 +69,11 @@ void formatDegrees(const std::optional<float>& v, char* out, size_t size) {
 
 void AlignmentScreen::build() {
     _screen = lv_obj_create(nullptr);
+    // Screens are built on demand and deleted when not shown (saves heap);
+    // drop every pointer into the LVGL tree when that happens.
+    lv_obj_add_event_cb(
+        _screen, [](lv_event_t* e) { static_cast<AlignmentScreen*>(lv_event_get_user_data(e))->onDeleted(); },
+        LV_EVENT_DELETE, this);
     lv_obj_set_style_bg_color(_screen, lv_color_hex(kBg), 0);
     lv_obj_set_style_bg_opa(_screen, LV_OPA_COVER, 0);
     lv_obj_set_style_pad_all(_screen, 10, 0);
@@ -157,6 +162,7 @@ void AlignmentScreen::applyLayout(bool landscape) {
 }
 
 void AlignmentScreen::update(const starlink::StarlinkSnapshot& snap) {
+    if (!built()) return;
     applyLayout(lv_display_get_horizontal_resolution(nullptr) > lv_display_get_vertical_resolution(nullptr));
 
     // Without fresh data, show nothing rather than stale pointing.

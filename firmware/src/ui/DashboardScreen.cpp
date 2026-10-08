@@ -129,6 +129,11 @@ void DashboardScreen::build(Callback onLongPress, void* ctx) {
     _ctx = ctx;
 
     _screen = lv_obj_create(nullptr);
+    // Screens are built on demand and deleted when not shown (saves heap);
+    // drop every pointer into the LVGL tree when that happens.
+    lv_obj_add_event_cb(
+        _screen, [](lv_event_t* e) { static_cast<DashboardScreen*>(lv_event_get_user_data(e))->onDeleted(); },
+        LV_EVENT_DELETE, this);
     lv_obj_set_style_bg_color(_screen, lv_color_hex(kBg), 0);
     lv_obj_set_style_bg_opa(_screen, LV_OPA_COVER, 0);
     lv_obj_set_style_pad_all(_screen, 10, 0);
@@ -341,10 +346,18 @@ void DashboardScreen::showPanel(const starlink::StarlinkSnapshot& s, const Healt
     setText(_panelHint, hint);
 }
 
+void DashboardScreen::onDeleted() {
+    _screen = nullptr;
+    _layoutApplied = false;
+    _shownAny = false;
+}
+
 void DashboardScreen::update(const starlink::StarlinkSnapshot& s, uint32_t nowMs) {
+    // The DEGRADED hold runs even while hidden so it is right when shown.
+    const Health h = holdDegraded(s.health, nowMs);
+    if (!built()) return;
     applyLayout(lv_display_get_horizontal_resolution(nullptr) > lv_display_get_vertical_resolution(nullptr));
 
-    const Health h = holdDegraded(s.health, nowMs);
     // Numbers only while the data is fresh; otherwise the status panel.
     const bool fresh = s.state == starlink::LinkState::Online && s.hasStatus;
     showHealth(h, !fresh);

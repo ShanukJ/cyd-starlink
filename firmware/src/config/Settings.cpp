@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "../utils/Log.h"
+#include "SettingsValidation.h"
 
 namespace config {
 
@@ -11,12 +12,17 @@ namespace {
 
 constexpr const char* kNamespace = "sm-config";
 // Bump when the stored layout changes, and migrate in load().
-constexpr uint8_t kSchemaVersion = 1;
+//   1: WiFi SSID/password, Starlink host
+//   2: + poll interval, brightness, rotation (absent keys -> defaults)
+constexpr uint8_t kSchemaVersion = 2;
 
 constexpr const char* kKeySchema = "schema";
 constexpr const char* kKeySsid = "wifi_ssid";
 constexpr const char* kKeyPassword = "wifi_pass";
 constexpr const char* kKeyStarlinkHost = "sl_host";
+constexpr const char* kKeyPollMs = "poll_ms";
+constexpr const char* kKeyBrightness = "bright";
+constexpr const char* kKeyRotation = "rotation";
 
 }  // namespace
 
@@ -40,8 +46,16 @@ bool load(Settings& out) {
     if (prefs.isKey(kKeyStarlinkHost)) {
         prefs.getString(kKeyStarlinkHost, out.starlinkHost, sizeof(out.starlinkHost));
     }
+    // Schema 2 keys; on a schema-1 device they are simply absent.
+    out.pollMs = prefs.getUShort(kKeyPollMs, kDefaultPollMs);
+    out.brightness = prefs.getUChar(kKeyBrightness, kDefaultBrightness);
+    out.rotation = prefs.getUChar(kKeyRotation, kRotationBoardDefault);
     prefs.end();
-    LOG("CONFIG", "Loaded (schema %u): WiFi \"%s\", Starlink %s", schema, out.wifiSsid, out.starlinkHost);
+
+    // Never trust stored values blindly (older firmware, corruption).
+    sanitize(out);
+    LOG("CONFIG", "Loaded (schema %u): WiFi \"%s\", Starlink %s, poll %u ms", schema, out.wifiSsid,
+        out.starlinkHost, out.pollMs);
     return true;
 }
 
@@ -55,8 +69,53 @@ bool save(const Settings& s) {
     ok &= prefs.putString(kKeySsid, s.wifiSsid) == strlen(s.wifiSsid);
     ok &= prefs.putString(kKeyPassword, s.wifiPassword) == strlen(s.wifiPassword);
     ok &= prefs.putString(kKeyStarlinkHost, s.starlinkHost) == strlen(s.starlinkHost);
+    ok &= prefs.putUShort(kKeyPollMs, s.pollMs) == 2;
+    ok &= prefs.putUChar(kKeyBrightness, s.brightness) == 1;
+    ok &= prefs.putUChar(kKeyRotation, s.rotation) == 1;
     prefs.end();
     LOG("CONFIG", "%s", ok ? "Saved" : "ERROR: save failed");
+    return ok;
+}
+
+bool erase() {
+    Preferences prefs;
+    if (!prefs.begin(kNamespace, false)) return false;
+    const bool ok = prefs.clear();
+    prefs.end();
+    LOG("CONFIG", "%s", ok ? "All settings erased" : "ERROR: erase failed");
+    return ok;
+}
+
+void SettingsStore::begin() {
+    Settings s;
+    load(s);
+    std::lock_guard<std::mutex> lock(_mutex);
+    _settings = s;
+    _version++;
+}
+
+Settings SettingsStore::get() const {
+    std::lock_guard<std::mutex> lock(_mutex);
+    return _settings;
+}
+
+bool SettingsStore::update(const Settings& s) {
+    const bool ok = save(s);
+    {
+        std::lock_guard<std::mutex> lock(_mutex);
+        _settings = s;  // apply even if NVS failed: better than ignoring the user
+    }
+    _version++;
+    return ok;
+}
+
+bool SettingsStore::factoryReset() {
+    const bool ok = erase();
+    {
+        std::lock_guard<std::mutex> lock(_mutex);
+        _settings = Settings{};
+    }
+    _version++;
     return ok;
 }
 

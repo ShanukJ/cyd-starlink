@@ -67,11 +67,23 @@ void test_duration() {
     TEST_ASSERT_EQUAL_STRING("4d 13h", buf);
 }
 
+void test_nice_ceil() {
+    TEST_ASSERT_FLOAT_WITHIN(1, 200e6f, fmt::niceCeil(183e6f, 1e6f));
+    TEST_ASSERT_FLOAT_WITHIN(1, 200e6f, fmt::niceCeil(200e6f, 1e6f));
+    TEST_ASSERT_FLOAT_WITHIN(1, 500e6f, fmt::niceCeil(201e6f, 1e6f));
+    TEST_ASSERT_FLOAT_WITHIN(1, 1e6f, fmt::niceCeil(46000.0f, 1e6f));  // floor
+    TEST_ASSERT_FLOAT_WITHIN(1e-3f, 50.0f, fmt::niceCeil(41.0f, 50.0f));
+    TEST_ASSERT_FLOAT_WITHIN(1e-3f, 100.0f, fmt::niceCeil(51.0f, 50.0f));
+    TEST_ASSERT_FLOAT_WITHIN(1e-3f, 1000.0f, fmt::niceCeil(999.0f, 50.0f));
+    TEST_ASSERT_FLOAT_WITHIN(1e-3f, 50.0f, fmt::niceCeil(NAN, 50.0f));
+}
+
 int main() {
     UNITY_BEGIN();
     RUN_TEST(test_throughput);
     RUN_TEST(test_latency);
     RUN_TEST(test_percent);
     RUN_TEST(test_duration);
+    RUN_TEST(test_nice_ceil);
     return UNITY_END();
 }

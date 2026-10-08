@@ -9,7 +9,7 @@ namespace app {
 // Developer commands over the USB serial console (115200 baud), one per line:
 //
 //   screenshot   dump the displayed frame (see scripts/screenshot.py)
-//   page <n>     show page n (0 = dashboard, 1 = alignment, ...)
+//   page <n>     show page n (0 dashboard, 1 history, 2 alignment, 3 diagnostics)
 //   rotate <r>   set display rotation 0..3 (not saved)
 //
 // Polled from the UI task, so a command runs between LVGL frames.

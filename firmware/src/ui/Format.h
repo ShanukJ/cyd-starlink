@@ -24,6 +24,10 @@ void latency(const std::optional<float>& ms, char* out, size_t size);
 // non-zero values show as "<0.1" rather than a misleading "0.0".
 void percent(const std::optional<float>& fraction, char* out, size_t size);
 
+// Smallest "nice" value (1, 2 or 5 x 10^n) >= v, for graph axes; at
+// least `floor`. 183e6 -> 200e6, 41 -> 50, 0 -> floor.
+float niceCeil(float v, float floor);
+
 // Compact duration: "4d 13h", "13h 05m", "5m 12s", "42s".
 void duration(uint64_t seconds, char* out, size_t size);
 void duration(const std::optional<uint64_t>& seconds, char* out, size_t size);

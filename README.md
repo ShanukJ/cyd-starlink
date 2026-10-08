@@ -5,12 +5,13 @@ A standalone Starlink status display for cheap ESP32 touchscreen boards
 local network. It needs no cloud, no account, no Home Assistant, no MQTT and
 no extra server.
 
-> **Status: early development (v0.1.0, Milestone 7 — diagnostics).**
-> The firmware joins your WiFi and shows live dish status, pointing and
-> diagnostics. A history graph comes in the next milestone.
+> **Status: early development (v0.1.0, Milestone 8 — history).**
+> The firmware joins your WiFi and shows live dish status, 15-minute
+> history graphs, pointing and diagnostics. Web settings come next.
 
 <p>
   <img src="docs/images/dashboard-portrait.png" width="240" alt="Dashboard in portrait: download, upload, latency, obstruction, signal, uptime">
+  <img src="docs/images/history-portrait.png" width="240" alt="History: 15-minute throughput and latency graphs">
   <img src="docs/images/alignment-portrait.png" width="240" alt="Alignment: top-down plot of dish vs target pointing, azimuth/elevation table, guidance">
   <img src="docs/images/diagnostics-portrait.png" width="240" alt="Diagnostics: per-subsystem checks and dish/monitor versions">
   <img src="docs/images/dashboard-landscape.png" width="320" alt="Dashboard in landscape">
@@ -74,7 +75,10 @@ The password only appears on the device's own screen (and serial log).
 - If the dish stops answering, the dashboard switches to an OFFLINE panel
   showing how long ago the dish was last seen, and keeps retrying.
 - **Swipe left/right** (or tap the page dots at the bottom) to switch between
-  the dashboard, **alignment** and **diagnostics** pages. Diagnostics lists
+  the dashboard, **history**, **alignment** and **diagnostics** pages.
+  History graphs the last 15 minutes of download/upload and latency. Right
+  after power-up it is filled from the dish's own per-second history, so
+  the graphs aren't empty; gaps in the data show as gaps. Diagnostics lists
   hardware self-test, RF, GPS, network, thermal, obstruction, Ethernet,
   other alerts and software update, plus dish and monitor versions and the
   monitor's IP address.
@@ -93,7 +97,7 @@ At 115200 baud, one command per line:
 | Command | Effect |
 |---|---|
 | `screenshot` | send the current screen (use `firmware/scripts/screenshot.py`) |
-| `page <n>` | show page n (0 dashboard, 1 alignment, 2 diagnostics) |
+| `page <n>` | show page n (0 dashboard, 1 history, 2 alignment, 3 diagnostics) |
 | `rotate <r>` | set display rotation 0–3 (not saved) |
 
 ```sh

@@ -1,5 +1,6 @@
 #include "Format.h"
 
+#include <math.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -37,6 +38,18 @@ void percent(const std::optional<float>& fraction, char* out, size_t size) {
         snprintf(out, size, "%.1f", p);
     } else {
         snprintf(out, size, "%.0f", p);
+    }
+}
+
+float niceCeil(float v, float floor) {
+    if (!(v > floor)) return floor;  // also catches NaN
+    float decade = powf(10.0f, floorf(log10f(v)));
+    for (;;) {
+        for (float m : {1.0f, 2.0f, 5.0f}) {
+            // Small tolerance so 200e6 stays 200e6 despite float rounding.
+            if (m * decade >= v * 0.9999f) return m * decade;
+        }
+        decade *= 10.0f;
     }
 }
 

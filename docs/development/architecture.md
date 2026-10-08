@@ -94,9 +94,41 @@ task.
 Bump the schema version when the layout changes, and migrate in
 `config::load()`. After boot the network task owns the settings.
 
+## Memory
+
+There is no PSRAM, so RAM (about 230 KB of heap at boot) is the tightest
+resource. Measured at Milestone 8:
+
+| Consumer | Heap |
+|---|---|
+| LVGL core + 2 x 19.2 KB DMA draw buffers | ~47 KB |
+| One screen's LVGL objects | 5 - 17 KB |
+| WiFi stack, network task | ~60 KB |
+| Free after boot | ~107 KB (largest block ~63 KB) |
+
+Because of this, **screens are built when shown and deleted when left**
+(`UiManager`). Building all six screens at boot cost 62 KB and left the
+largest free block at 16 KB. Each screen class keeps its non-LVGL state
+(history copy, DEGRADED hold) across rebuilds. It drops its pointers into
+the LVGL tree from an `LV_EVENT_DELETE` handler. Navigation triggered from
+inside an LVGL event is deferred with `lv_async_call`, so a screen is never
+deleted inside its own event handler.
+
+Large network responses reserve their buffer in one allocation up front
+(see `sizeHint` in `StarlinkTransport`). Allocation failures are caught
+rather than aborting.
+
+## Rendering cost
+
+Rough frame times at 240 MHz: switching page (build plus full render)
+150 - 270 ms; a history refresh about 70 ms once per 2 s; dashboard
+updates under 30 ms. Graph lines are drawn as axis-aligned 2 px bars, one
+per pixel column. LVGL's anti-aliased diagonal lines were about twice as
+slow.
+
 ## Flash budget
 
-The app partition is 1.9 MB (`min_spiffs.csv`, two OTA slots). Milestone 2
-uses about 1.5 MB. The WiFi/TCP/WPA stack accounts for roughly 530 KB and
+The app partition is 1.9 MB (`min_spiffs.csv`, two OTA slots). Milestone 8
+uses about 1.64 MB (83%). The WiFi/TCP/WPA stack accounts for roughly 530 KB and
 LVGL for about 300 KB. If space gets tight, disable unused LVGL widgets in
 `lv_conf.h` first.

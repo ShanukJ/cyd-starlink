@@ -10,69 +10,114 @@ namespace {
 constexpr uint32_t kUpdateMs = 250;
 constexpr uint32_t kSlideMs = 180;
 constexpr int32_t kDotSize = 6;
+
+bool animating() { return lv_display_get_screen_loading(nullptr) != nullptr; }
 }  // namespace
 
 void UiManager::begin() {
-    _dashboard.build(onOpenHardwareTest, this);
-    _alignment.build();
-    _diagnostics.build(_board.profile().name);
-    _test.build(onCloseHardwareTest, this);
-    _setup.build(onSetupClose, this);
-    for (int i = 0; i < kPageCount; ++i) lv_obj_add_event_cb(pageScreen(i), onGesture, LV_EVENT_GESTURE, this);
     buildPageDots();
-
-    lv_screen_load(_dashboard.screen());
+    for (int i = 0; i < kPageCount; ++i) {
+        lv_obj_set_style_bg_color(_dot[i], lv_color_hex(theme::kMuted), 0);
+    }
     update();
     lv_timer_create(onTimer, kUpdateMs, this);
 }
 
-lv_obj_t* UiManager::pageScreen(int page) const {
+lv_obj_t* UiManager::builtScreen(View view, int page) const {
+    switch (view) {
+        case View::Setup: return _setup.screen();
+        case View::HardwareTest: return _test.screen();
+        case View::Page: break;
+    }
     switch (page) {
-        case 1: return _alignment.screen();
-        case 2: return _diagnostics.screen();
+        case 1: return _history.screen();
+        case 2: return _alignment.screen();
+        case 3: return _diagnostics.screen();
         default: return _dashboard.screen();
     }
+}
+
+lv_obj_t* UiManager::buildScreen(View view, int page) {
+    if (lv_obj_t* s = builtScreen(view, page)) return s;
+    switch (view) {
+        case View::Setup: _setup.build(onSetupClose, this); break;
+        case View::HardwareTest: _test.build(onCloseHardwareTest, this); break;
+        case View::Page:
+            switch (page) {
+                case 1: _history.build(); break;
+                case 2: _alignment.build(); break;
+                case 3: _diagnostics.build(_board.profile().name); break;
+                default: _dashboard.build(onOpenHardwareTest, this); break;
+            }
+            lv_obj_add_event_cb(builtScreen(view, page), onGesture, LV_EVENT_GESTURE, this);
+            break;
+    }
+    return builtScreen(view, page);
 }
 
 void UiManager::update() {
     const net::WifiStatus wifi = _wifi.status();
     const starlink::StarlinkSnapshot starlink = _starlink.snapshot();
 
-    // Keep every screen current (cheap: labels only change when text does),
-    // so switching screens never shows stale content.
+    const View view = wifi.portalActive ? View::Setup : _hardwareTest ? View::HardwareTest : View::Page;
+    if (!animating()) {
+        lv_obj_t* wanted = builtScreen(view, _page);
+        if (!wanted || lv_screen_active() != wanted) {
+            // Instant switch; the previous screen is deleted.
+            lv_screen_load_anim(buildScreen(view, _page), LV_SCREEN_LOAD_ANIM_NONE, 0, 0, true);
+        }
+    }
+    showPageDots(view == View::Page);
+    for (int i = 0; i < kPageCount; ++i) {
+        lv_obj_set_style_bg_opa(_dot[i], i == _page ? LV_OPA_COVER : LV_OPA_40, 0);
+    }
+
+    // Each screen ignores updates while it isn't built (but keeps any
+    // non-visual state, e.g. history and the DEGRADED hold).
     _dashboard.update(starlink, millis());
+    _history.update(_starlink, millis());
     _alignment.update(starlink);
     _diagnostics.update(starlink, wifi);
     _test.setWifiStatus(wifi);
     _test.setStarlink(starlink);
-    if (wifi.portalActive) _setup.update(wifi);
-
-    lv_obj_t* wanted = _hardwareTest ? _test.screen() : pageScreen(_page);
-    if (wifi.portalActive) wanted = _setup.screen();
-    showPageDots(wanted == pageScreen(_page));
-
-    // Don't interrupt a slide animation that is already heading there.
-    if (lv_screen_active() != wanted && lv_display_get_screen_loading(nullptr) != wanted) {
-        lv_screen_load(wanted);
-    }
-
-    for (int i = 0; i < kPageCount; ++i) {
-        lv_obj_set_style_bg_opa(_dot[i], i == _page ? LV_OPA_COVER : LV_OPA_40, 0);
-    }
+    _setup.update(wifi);
 }
 
 void UiManager::goToPage(int page, lv_screen_load_anim_t anim) {
     page = (page + kPageCount) % kPageCount;
-    if (page == _page) return;
+    // Ignore while a slide is running: its outgoing screen is queued for
+    // deletion and must not become the target again.
+    if (page == _page || animating() || _hardwareTest) return;
     _page = page;
-    lv_screen_load_anim(pageScreen(page), anim, kSlideMs, 0, false);
+    lv_screen_load_anim(buildScreen(View::Page, page), anim, kSlideMs, 0, true);
     update();
+}
+
+void UiManager::showPage(int index) {
+    _hardwareTest = false;
+    goToPage(index, LV_SCREEN_LOAD_ANIM_NONE);
+}
+
+// LVGL event handlers run while the screen that raised them is alive;
+// switching screens (which deletes the old one) is deferred until after.
+void UiManager::requestUpdate() {
+    if (_updatePending) return;
+    _updatePending = true;
+    lv_async_call(onDeferredUpdate, this);
+}
+
+void UiManager::onDeferredUpdate(void* ctx) {
+    auto* self = static_cast<UiManager*>(ctx);
+    self->_updatePending = false;
+    self->update();
 }
 
 void UiManager::onGesture(lv_event_t* e) {
     auto* self = static_cast<UiManager*>(lv_event_get_user_data(e));
     const lv_dir_t dir = lv_indev_get_gesture_dir(lv_indev_active());
-    // Finger moves left => next page slides in from the right.
+    // Finger moves left => next page slides in from the right. A slide
+    // animation (not an instant load) never deletes the current screen
+    // synchronously, so this is safe inside the event.
     if (dir == LV_DIR_LEFT) self->goToPage(self->_page + 1, LV_SCREEN_LOAD_ANIM_MOVE_LEFT);
     if (dir == LV_DIR_RIGHT) self->goToPage(self->_page - 1, LV_SCREEN_LOAD_ANIM_MOVE_RIGHT);
 }
@@ -99,7 +144,6 @@ void UiManager::buildPageDots() {
         lv_obj_remove_style_all(_dot[i]);
         lv_obj_set_size(_dot[i], kDotSize, kDotSize);
         lv_obj_set_style_radius(_dot[i], LV_RADIUS_CIRCLE, 0);
-        lv_obj_set_style_bg_color(_dot[i], lv_color_hex(theme::kMuted), 0);
         lv_obj_remove_flag(_dot[i], LV_OBJ_FLAG_CLICKABLE);
     }
 }
@@ -121,13 +165,13 @@ void UiManager::onSetupClose(void* ctx) { static_cast<UiManager*>(ctx)->_wifi.re
 void UiManager::onOpenHardwareTest(void* ctx) {
     auto* self = static_cast<UiManager*>(ctx);
     self->_hardwareTest = true;
-    self->update();
+    self->requestUpdate();
 }
 
 void UiManager::onCloseHardwareTest(void* ctx) {
     auto* self = static_cast<UiManager*>(ctx);
     self->_hardwareTest = false;
-    self->update();
+    self->requestUpdate();
 }
 
 }  // namespace ui

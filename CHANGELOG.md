@@ -10,8 +10,9 @@ First release. Supports the ESP32-2432S028 ("Cheap Yellow Display")
 
 ### Display
 - Dashboard: state (ONLINE / DEGRADED / OFFLINE / ERROR / CONNECTING,
-  shown as a symbol and a word), download, upload, latency, obstruction,
-  signal and uptime. Portrait and landscape layouts.
+  shown as a symbol and a word), current download and upload with their
+  15-minute peaks, latency, obstruction, signal and uptime. Portrait and
+  landscape layouts.
 - History: 15-minute throughput and latency graphs, filled from the dish's
   own history right after power-up.
 - Alignment: current vs desired dish pointing on a top-down plot, with

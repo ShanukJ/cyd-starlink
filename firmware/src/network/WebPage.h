@@ -59,8 +59,8 @@ button{font:inherit;cursor:pointer}
   <div class="row"><h2>STATUS</h2><span class="badge" id="health">--</span></div>
   <p class="hint" id="reason"></p>
   <div class="grid">
-    <div><b id="down">--</b><span>Download</span></div>
-    <div><b id="up">--</b><span>Upload</span></div>
+    <div><b id="down">--</b><span>Download now</span></div>
+    <div><b id="up">--</b><span>Upload now</span></div>
     <div><b id="lat">--</b><span>Latency</span></div>
     <div><b id="obs">--</b><span>Obstruction</span></div>
     <div><b id="sig">--</b><span>Signal</span></div>

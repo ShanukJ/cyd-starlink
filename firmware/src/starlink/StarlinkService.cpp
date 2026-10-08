@@ -229,6 +229,11 @@ void StarlinkService::publish() {
     snap.lastError = _lastError;
     strlcpy(snap.host, _host, sizeof(snap.host));
     snap.health = evaluateHealth(snap);
+    {
+        std::lock_guard<std::mutex> lock(_historyMutex);  // 450 slots: cheap, once per poll
+        snap.peakDownBps = _history.stats(Series::Down).max;
+        snap.peakUpBps = _history.stats(Series::Up).max;
+    }
 
     const Health& h = snap.health;
     if (h.state != _health.state || strcmp(h.reason, _health.reason) != 0) {

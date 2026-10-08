@@ -2,6 +2,8 @@
 
 #include <stdint.h>
 
+#include <optional>
+
 #include "Health.h"
 #include "StarlinkClient.h"
 #include "StarlinkStatus.h"
@@ -23,6 +25,11 @@ struct StarlinkSnapshot {
     Health health;
     bool hasStatus = false;
     StarlinkStatus status;
+    // Highest throughput in the 15-minute history window. The live values
+    // are *current traffic* (often a few kbps when idle); the peak hints at
+    // what the link actually carried recently.
+    std::optional<float> peakDownBps;
+    std::optional<float> peakUpBps;
     uint32_t lastOkMs = 0;  // millis() of the last good poll
     uint32_t lastRttMs = 0;
     uint16_t failures = 0;  // consecutive

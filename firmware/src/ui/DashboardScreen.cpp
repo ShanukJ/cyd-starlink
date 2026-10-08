@@ -97,6 +97,8 @@ DashboardScreen::Metric DashboardScreen::makeMetric(lv_obj_t* parent, const lv_f
 
     m.caption = label(m.box, &lv_font_montserrat_12, accent, caption);
     lv_obj_set_style_text_letter_space(m.caption, 2, 0);
+    m.peak = label(m.box, &lv_font_montserrat_12, kMuted, "");
+    lv_obj_add_flag(m.peak, LV_OBJ_FLAG_HIDDEN);
     return m;
 }
 
@@ -110,7 +112,7 @@ DashboardScreen::Metric DashboardScreen::makeTile(lv_obj_t* parent, const char* 
     lv_obj_set_style_bg_color(m.box, lv_color_hex(kCard), 0);
     lv_obj_set_style_bg_opa(m.box, LV_OPA_COVER, 0);
     lv_obj_set_style_radius(m.box, 8, 0);
-    lv_obj_set_style_pad_ver(m.box, 6, 0);
+    lv_obj_set_style_pad_ver(m.box, 3, 0);  // tight: the 15-min peak lines need the height
     lv_obj_set_style_pad_hor(m.box, 4, 0);
 
     lv_obj_t* row = container(m.box, LV_FLEX_FLOW_ROW);
@@ -177,8 +179,9 @@ void DashboardScreen::build(Callback onLongPress, void* ctx) {
 
     _primary = container(_body, LV_FLEX_FLOW_COLUMN);
     lv_obj_set_flex_align(_primary, LV_FLEX_ALIGN_SPACE_EVENLY, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-    _download = makeMetric(_primary, &sm_font_num_48, LV_SYMBOL_DOWN " DOWNLOAD", kAccentDown);
-    _upload = makeMetric(_primary, &sm_font_num_36, LV_SYMBOL_UP " UPLOAD", kAccentUp);
+    // "NOW": the dish reports current traffic, not link capacity.
+    _download = makeMetric(_primary, &sm_font_num_48, LV_SYMBOL_DOWN " DOWNLOAD NOW", kAccentDown);
+    _upload = makeMetric(_primary, &sm_font_num_36, LV_SYMBOL_UP " UPLOAD NOW", kAccentUp);
 
     _grid = lv_obj_create(_body);
     lv_obj_remove_style_all(_grid);
@@ -229,14 +232,14 @@ void DashboardScreen::applyLayout(bool landscape) {
     if (landscape) {
         lv_obj_set_flex_flow(_body, LV_FLEX_FLOW_ROW);
         lv_obj_set_style_pad_column(_body, 8, 0);
-        lv_obj_set_size(_primary, LV_PCT(45), LV_PCT(100));
+        lv_obj_set_size(_primary, LV_PCT(47), LV_PCT(100));
         lv_obj_set_flex_grow(_primary, 0);
         lv_obj_set_flex_grow(_grid, 1);
         lv_obj_set_height(_grid, LV_PCT(100));
         lv_obj_set_grid_dsc_array(_grid, cols1, rows4);
     } else {
         lv_obj_set_flex_flow(_body, LV_FLEX_FLOW_COLUMN);
-        lv_obj_set_style_pad_row(_body, 8, 0);
+        lv_obj_set_style_pad_row(_body, 4, 0);
         // Reset every size the landscape layout set, or rotating back
         // leaves the numbers squeezed out by a full-height grid.
         lv_obj_set_size(_primary, LV_PCT(100), LV_SIZE_CONTENT);
@@ -245,6 +248,9 @@ void DashboardScreen::applyLayout(bool landscape) {
         lv_obj_set_size(_grid, LV_PCT(100), LV_SIZE_CONTENT);
         lv_obj_set_grid_dsc_array(_grid, cols2, rows2);
     }
+
+    // "DOWNLOAD NOW" with letter spacing is wider than the landscape column.
+    for (Metric* m : {&_download, &_upload}) lv_obj_set_style_text_letter_space(m->caption, landscape ? 0 : 2, 0);
 
     const lv_font_t* tileFont = landscape ? &lv_font_montserrat_20 : &lv_font_montserrat_28;
     for (int i = 0; i < 4; ++i) {
@@ -256,7 +262,7 @@ void DashboardScreen::applyLayout(bool landscape) {
         lv_obj_set_flex_flow(t->box, landscape ? LV_FLEX_FLOW_ROW_REVERSE : LV_FLEX_FLOW_COLUMN);
         lv_obj_set_flex_align(t->box, landscape ? LV_FLEX_ALIGN_SPACE_BETWEEN : LV_FLEX_ALIGN_CENTER,
                               LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-        lv_obj_set_style_pad_hor(t->box, landscape ? 8 : 4, 0);
+        lv_obj_set_style_pad_hor(t->box, landscape ? 6 : 4, 0);
         lv_obj_set_style_text_font(t->value, tileFont, 0);
         lv_obj_set_style_pad_bottom(t->unit, unitBaselinePad(tileFont), 0);
     }
@@ -295,6 +301,16 @@ void DashboardScreen::showHealth(const Health& h, bool panelVisible) {
         setText(_reason, h.reason);
         setColor(_reason, look.color);
     }
+}
+
+void DashboardScreen::showPeak(lv_obj_t* label, const std::optional<float>& bps) {
+    setVisible(label, bps.has_value());
+    if (!bps) return;
+    char num[16], buf[40];
+    const char* unit;
+    fmt::throughput(bps, num, sizeof(num), &unit);
+    snprintf(buf, sizeof(buf), "15 min peak %s %s", num, unit);
+    setText(label, buf);
 }
 
 void DashboardScreen::showMetrics(const starlink::StarlinkStatus& st) {
@@ -368,6 +384,8 @@ void DashboardScreen::update(const starlink::StarlinkSnapshot& s, uint32_t nowMs
     setVisible(_panel, !fresh);
     if (fresh) {
         showMetrics(s.status);
+        showPeak(_download.peak, s.peakDownBps);
+        showPeak(_upload.peak, s.peakUpBps);
     } else {
         showPanel(s, h, nowMs);
     }

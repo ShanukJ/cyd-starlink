@@ -25,6 +25,7 @@ private:
         lv_obj_t* value;
         lv_obj_t* unit;
         lv_obj_t* caption;
+        lv_obj_t* peak;  // primary metrics only
     };
 
     Metric makeMetric(lv_obj_t* parent, const lv_font_t* valueFont, const char* caption, uint32_t accent);
@@ -33,6 +34,7 @@ private:
     starlink::Health holdDegraded(const starlink::Health& h, uint32_t now);
     void showHealth(const starlink::Health& h, bool panelVisible);
     void showMetrics(const starlink::StarlinkStatus& st);
+    void showPeak(lv_obj_t* label, const std::optional<float>& bps);
     void showPanel(const starlink::StarlinkSnapshot& s, const starlink::Health& h, uint32_t now);
 
     static void onLongPressed(lv_event_t* e);

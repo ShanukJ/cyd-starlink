@@ -19,7 +19,10 @@ no extra server.
 
 - **Dashboard:** dish state (ONLINE, DEGRADED, OFFLINE, ERROR,
   CONNECTING), shown as a word and a symbol, not just a colour. Also
-  download, upload, latency, obstruction, signal quality and uptime.
+  current download and upload, each with its 15-minute peak, plus latency,
+  obstruction, signal quality and uptime. The dish reports traffic actually
+  flowing, not link capacity: an idle connection shows a few kbps, and the
+  peak shows what it carried recently.
 - **History:** 15-minute throughput and latency graphs, filled from the
   dish's own history the moment the monitor starts.
 - **Alignment:** where the dish points versus where Starlink wants it to,

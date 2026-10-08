@@ -37,17 +37,25 @@ lv_obj_t* container(lv_obj_t* parent, lv_flex_flow_t flow) {
     return c;
 }
 
+// Caption on the left, current values on the right. The row wraps: values
+// that don't fit beside the caption move to a second line instead of
+// clipping it. (Throughput values always take the second line in portrait,
+// see applyLayout().)
 lv_obj_t* captionRow(lv_obj_t* parent, const char* caption) {
-    lv_obj_t* row = container(parent, LV_FLEX_FLOW_ROW);
+    lv_obj_t* row = container(parent, LV_FLEX_FLOW_ROW_WRAP);
     lv_obj_set_size(row, LV_PCT(100), LV_SIZE_CONTENT);
-    lv_obj_set_flex_align(row, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-    lv_obj_set_style_pad_column(row, 6, 0);
-    lv_obj_t* c = label(row, &lv_font_montserrat_12, kMuted, caption);
-    lv_obj_set_flex_grow(c, 1);
-    // One line only: the legend values take priority over the caption.
-    lv_label_set_long_mode(c, LV_LABEL_LONG_CLIP);
-    lv_obj_set_height(c, lv_font_get_line_height(&lv_font_montserrat_12));
+    lv_obj_set_flex_align(row, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_style_pad_row(row, 2, 0);
+    label(row, &lv_font_montserrat_12, kMuted, caption);
     return row;
+}
+
+// The values, kept together so they wrap as one unit.
+lv_obj_t* valuesGroup(lv_obj_t* row) {
+    lv_obj_t* g = container(row, LV_FLEX_FLOW_ROW);
+    lv_obj_set_size(g, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+    lv_obj_set_style_pad_column(g, 8, 0);
+    return g;
 }
 
 // "46 kbps" from an optional value.
@@ -86,8 +94,9 @@ void HistoryScreen::build() {
 
     // Throughput: download + upload on one axis; current values as legend.
     lv_obj_t* row = captionRow(_screen, "THROUGHPUT");
-    _down = label(row, &lv_font_montserrat_12, kAccentDown, "");
-    _up = label(row, &lv_font_montserrat_12, kAccentUp, "");
+    _throughputValues = valuesGroup(row);
+    _down = label(_throughputValues, &lv_font_montserrat_12, kAccentDown, "");
+    _up = label(_throughputValues, &lv_font_montserrat_12, kAccentUp, "");
     _throughputPlot.create(_screen);
     lv_obj_set_width(_throughputPlot.obj(), LV_PCT(100));
     lv_obj_set_flex_grow(_throughputPlot.obj(), 3);
@@ -107,10 +116,22 @@ void HistoryScreen::build() {
     label(axis, &lv_font_montserrat_12, kMuted, window);
     label(axis, &lv_font_montserrat_12, kMuted, "now");
 
+    applyLayout();
     refresh();
 }
 
+void HistoryScreen::applyLayout() {
+    const int landscape =
+        lv_display_get_horizontal_resolution(nullptr) > lv_display_get_vertical_resolution(nullptr) ? 1 : 0;
+    if (landscape == _layoutLandscape) return;
+    _layoutLandscape = landscape;
+    // Portrait: down/up speeds always on their own line under "THROUGHPUT"
+    // (a full-width group forces the wrap). Landscape: beside the caption.
+    lv_obj_set_width(_throughputValues, landscape ? LV_SIZE_CONTENT : LV_PCT(100));
+}
+
 void HistoryScreen::update(const starlink::StarlinkService& service, uint32_t nowMs) {
+    if (built()) applyLayout();
     // The buffer changes twice per 2 s slot (time advances, then the poll
     // lands); redrawing both plots costs ~60-80 ms, so refresh at most once
     // per slot. The copy is kept while hidden, so the page is complete when

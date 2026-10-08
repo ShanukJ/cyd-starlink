@@ -19,9 +19,14 @@ public:
 
 private:
     void refresh();
-    void onDeleted() { _screen = nullptr; }
+    void applyLayout();
+    void onDeleted() {
+        _screen = nullptr;
+        _layoutLandscape = -1;
+    }
 
     lv_obj_t* _screen = nullptr;
+    lv_obj_t* _throughputValues = nullptr;
     lv_obj_t* _down = nullptr;
     lv_obj_t* _up = nullptr;
     lv_obj_t* _latency = nullptr;
@@ -31,6 +36,7 @@ private:
     starlink::HistoryBuffer _data;  // UI-side copy, refreshed when the service's changes
     uint32_t _version = UINT32_MAX;
     uint32_t _lastRefreshMs = 0;
+    int _layoutLandscape = -1;  // -1 = not applied yet
 };
 
 }  // namespace ui

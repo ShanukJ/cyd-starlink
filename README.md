@@ -5,9 +5,10 @@ A standalone Starlink status display for cheap ESP32 touchscreen boards
 local network. It needs no cloud, no account, no Home Assistant, no MQTT and
 no extra server.
 
-> **Status: early development (v0.1.0, Milestone 8 — history).**
+> **Status: early development (v0.1.0, Milestone 9 — web settings).**
 > The firmware joins your WiFi and shows live dish status, 15-minute
-> history graphs, pointing and diagnostics. Web settings come next.
+> history graphs, pointing and diagnostics, with a settings page in your
+> browser. Release packaging and a web flasher come next.
 
 <p>
   <img src="docs/images/dashboard-portrait.png" width="240" alt="Dashboard in portrait: download, upload, latency, obstruction, signal, uptime">
@@ -89,6 +90,24 @@ The password only appears on the device's own screen (and serial log).
 - **Long-press the dashboard for 1.5 s** to open the hardware test screen
   (touch, colours, rotation, brightness). Use ◀ to go back.
 - **Hold BOOT for 3 s** to open WiFi setup.
+
+## Settings in your browser
+
+Once the monitor is on your network, open **http://starlink-monitor.local/**
+(or the IP address shown on the diagnostics page) from a phone or computer
+on the same network. The page shows live status and lets you change:
+
+- WiFi network (scan list included; the saved password is never shown)
+- dish IP address and refresh interval (1 or 2 seconds)
+- display brightness and orientation (applied immediately)
+- restart and factory reset
+
+The same page is the setup portal on the `STARLINK-MONITOR-XXXX` network.
+
+There is no login: anyone on your local network can open the page, as with
+most home appliances. The page is protected against the usual browser-based
+attacks: other websites can't change settings through your browser, and
+the monitor only answers to its own name or IP address.
 
 ## Developer serial commands
 

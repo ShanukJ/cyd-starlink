@@ -90,9 +90,40 @@ task.
 
 ## Settings
 
-`config::Settings` lives in NVS namespace `sm-config` with a `schema` key.
-Bump the schema version when the layout changes, and migrate in
-`config::load()`. After boot the network task owns the settings.
+`config::Settings` lives in NVS namespace `sm-config` with a `schema` key
+(currently 2). Bump the schema version when the layout changes, and migrate
+in `config::load()`. Values read back are passed through `sanitize()`.
+
+One `config::SettingsStore` holds the live copy behind a mutex, with a
+version counter. Writers (the web UI) call `update()`, which persists to
+NVS. Readers poll `version()` and react:
+
+| Reader | Applies |
+|---|---|
+| `WifiManager` (net task) | new SSID/password: reconnect; failures reopen setup |
+| network task loop | dish IP, refresh interval |
+| `main` loop (UI task) | brightness, orientation, only when *those* values change |
+
+Validation (`SettingsValidation`) is pure C++ and host-tested.
+
+## Web UI
+
+`net::WebUi` runs one `WebServer` on port 80 for both the setup portal and
+the LAN settings page. In setup mode it adds a captive DNS server and
+redirects unknown URLs. Once the station connects it announces
+`starlink-monitor.local` over mDNS. The page (`WebPage.h`) is static. All
+data goes through a small JSON API built with `JsonWriter`, and only
+`textContent` is used in the page.
+
+There is no login, by design (LAN appliance). Protections:
+
+- **CSRF:** state-changing requests need an `X-SM-Request` header. A
+  cross-site page can't send it without a CORS preflight, and the server
+  never approves preflights.
+- **DNS rebinding:** `/api/*` answers only when the `Host` header is the
+  device's IP, AP address, `starlink-monitor` or `starlink-monitor.local`.
+- **No secrets returned:** the WiFi password is never returned
+  (`has_password` only).
 
 ## Memory
 

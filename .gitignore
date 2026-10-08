@@ -1,0 +1,7 @@
+.pio/
+.vscode/
+*.bin
+!docs/**/*.bin
+.DS_Store
+__pycache__/
+*.pyc

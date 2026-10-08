@@ -1,6 +1,7 @@
 #include "StarlinkService.h"
 
 #include <Arduino.h>
+#include <esp_heap_caps.h>
 #include <string.h>
 
 #include "../utils/Log.h"
@@ -13,6 +14,9 @@ constexpr uint32_t kPollIntervalMs = 2000;
 constexpr uint32_t kMinBackoffMs = 2000;
 constexpr uint32_t kMaxBackoffMs = 10000;  // keep it short: the dish reboots in ~1 min
 constexpr uint32_t kSummaryIntervalMs = 5 * 60 * 1000;
+// get_history needs one ~21 KB block (the response is moved, not copied).
+// Below this, skip the backfill rather than risk fragmenting the heap.
+constexpr size_t kMinBlockForHistory = 40 * 1024;
 
 bool reached(uint32_t now, uint32_t t) { return static_cast<int32_t>(now - t) >= 0; }
 
@@ -79,6 +83,12 @@ void logStatus(const StarlinkStatus& s) {
 }  // namespace
 
 void StarlinkService::loop(uint32_t now, bool networkUp, const char* host) {
+    {
+        // Time moves on even when polls fail, so outages show as gaps.
+        std::lock_guard<std::mutex> lock(_historyMutex);
+        _history.advanceTo(now);
+    }
+
     if (strcmp(host, _host) != 0) {
         if (_host[0]) LOG("STARLINK", "Dish address changed to %s", host);
         strlcpy(_host, host, sizeof(_host));
@@ -101,7 +111,44 @@ void StarlinkService::loop(uint32_t now, bool networkUp, const char* host) {
         LOG("STARLINK", "Connecting to %s:%u", _host, GrpcWebTransport::kDefaultPort);
         publish();
     }
-    if (reached(now, _nextPoll)) poll(now);
+    if (reached(now, _nextPoll)) {
+        poll(now);
+    } else if (_wantBackfill && _state == LinkState::Online) {
+        // Between polls, so the extra request never delays a status update.
+        _wantBackfill = false;
+        backfillHistory();
+    }
+}
+
+void StarlinkService::backfillHistory() {
+    const size_t largest = heap_caps_get_largest_free_block(MALLOC_CAP_8BIT);
+    if (largest < kMinBlockForHistory) {
+        LOG("STARLINK", "History: skipped, largest free block %u B", (unsigned)largest);
+        return;
+    }
+    DishHistory h;
+    const ClientResult r = _client.getHistory(_host, h);
+    if (r == ClientResult::Ok) {
+        size_t filled;
+        {
+            std::lock_guard<std::mutex> lock(_historyMutex);
+            filled = _history.backfill(millis(), h);
+        }
+        LOG("STARLINK", "History: %u s from dish, filled %u empty slots (%lu ms)",
+            (unsigned)h.available(h.downlinkBps), (unsigned)filled, (unsigned long)_client.callInfo().elapsedMs);
+    } else {
+        LOG("STARLINK", "History: unavailable (%s) - graphs start empty",
+            errorName(r, _client.transportResult()));
+    }
+    _client.releaseBuffers();
+}
+
+bool StarlinkService::copyHistory(HistoryBuffer& out, uint32_t& version) const {
+    std::lock_guard<std::mutex> lock(_historyMutex);
+    if (_history.version() == version) return false;
+    out = _history;
+    version = _history.version();
+    return true;
 }
 
 void StarlinkService::poll(uint32_t now) {
@@ -111,7 +158,16 @@ void StarlinkService::poll(uint32_t now) {
     now = millis();  // the call took time
 
     if (r == ClientResult::Ok) {
+        {
+            HistorySample sample;
+            sample.downBps = status.downlinkBps.value_or(NAN);
+            sample.upBps = status.uplinkBps.value_or(NAN);
+            sample.latencyMs = status.popPingLatencyMs.value_or(NAN);
+            std::lock_guard<std::mutex> lock(_historyMutex);
+            _history.record(now, sample);
+        }
         if (_state != LinkState::Online) {
+            _wantBackfill = true;
             LOG("STARLINK", "API reachable (api %lu, %lu ms)", (unsigned long)status.apiVersion.value_or(0),
                 (unsigned long)info.elapsedMs);
             logStatus(status);

@@ -3,6 +3,7 @@
 #include <mutex>
 
 #include "GrpcWebTransport.h"
+#include "HistoryBuffer.h"
 #include "StarlinkClient.h"
 #include "StarlinkSnapshot.h"
 #include "StarlinkStatus.h"
@@ -20,8 +21,13 @@ public:
 
     StarlinkSnapshot snapshot() const;  // any task
 
+    // Copies the history into `out` if it changed since `version` (any task).
+    // Returns true if `out` was updated.
+    bool copyHistory(HistoryBuffer& out, uint32_t& version) const;
+
 private:
     void poll(uint32_t now);
+    void backfillHistory();
     void publish();  // also re-evaluates health and logs changes
 
     GrpcWebTransport _transport;
@@ -41,6 +47,11 @@ private:
     uint32_t _lastRttMs = 0;
     uint32_t _lastSummaryMs = 0;
     uint32_t _pollsSinceSummary = 0;
+
+    bool _wantBackfill = false;  // fetch the dish's history after (re)connecting
+
+    mutable std::mutex _historyMutex;
+    HistoryBuffer _history;  // guarded by _historyMutex
 
     mutable std::mutex _mutex;
     StarlinkSnapshot _snapshot;  // guarded by _mutex

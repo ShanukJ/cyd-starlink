@@ -3,6 +3,8 @@
 #include <WiFi.h>
 #include <strings.h>
 
+#include <new>
+
 namespace starlink {
 
 const char* callResultName(CallResult r) {
@@ -14,6 +16,7 @@ const char* callResultName(CallResult r) {
         case CallResult::GrpcError: return "GRPC_ERROR";
         case CallResult::Malformed: return "MALFORMED";
         case CallResult::TooLarge: return "TOO_LARGE";
+        case CallResult::OutOfMemory: return "OUT_OF_MEMORY";
     }
     return "UNKNOWN";
 }
@@ -97,8 +100,25 @@ void parseGrpcHeader(const char* line, CallInfo& info) {
 
 }  // namespace
 
-CallResult GrpcWebTransport::call(const char* host, const uint8_t* request, size_t requestLen,
+void GrpcWebTransport::releaseBuffers() {
+    std::vector<uint8_t>().swap(_body);
+}
+
+CallResult GrpcWebTransport::call(const char* host, const uint8_t* request, size_t requestLen, size_t sizeHint,
                                   std::vector<uint8_t>& response, CallInfo& info) {
+    // Heap exhaustion must never take the device down: every allocation
+    // below is inside this try, and bad_alloc becomes OUT_OF_MEMORY.
+    try {
+        return callImpl(host, request, requestLen, sizeHint, response, info);
+    } catch (const std::bad_alloc&) {
+        response.clear();
+        releaseBuffers();
+        return CallResult::OutOfMemory;
+    }
+}
+
+CallResult GrpcWebTransport::callImpl(const char* host, const uint8_t* request, size_t requestLen, size_t sizeHint,
+                                      std::vector<uint8_t>& response, CallInfo& info) {
     const uint32_t start = millis();
     info = CallInfo{};
     response.clear();
@@ -161,6 +181,10 @@ CallResult GrpcWebTransport::call(const char* host, const uint8_t* request, size
 
     // Body (the dish always uses chunked encoding, but don't depend on it).
     _body.clear();
+    if (_body.capacity() < sizeHint) {
+        std::vector<uint8_t>().swap(_body);  // free first, then one exact allocation
+        _body.reserve(sizeHint < _opt.maxResponseBytes ? sizeHint : _opt.maxResponseBytes);
+    }
     auto readBytes = [&](size_t n) -> int {  // 1 ok, 0 too large, -1 read failure
         if (_body.size() + n > _opt.maxResponseBytes) return 0;
         const size_t at = _body.size();
@@ -200,6 +224,7 @@ CallResult GrpcWebTransport::call(const char* host, const uint8_t* request, size
     // gRPC-Web frames: data frame(s) with the protobuf, then a trailer frame
     // carrying "grpc-status: N".
     size_t off = 0;
+    size_t dataFrames = 0, dataOff = 0, dataLen = 0;
     while (off + 5 <= _body.size()) {
         const uint8_t flags = _body[off];
         const uint32_t len = (uint32_t(_body[off + 1]) << 24) | (uint32_t(_body[off + 2]) << 16) |
@@ -221,11 +246,27 @@ CallResult GrpcWebTransport::call(const char* host, const uint8_t* request, size
                 p += n + 1;
             }
         } else {
-            response.insert(response.end(), _body.begin() + off, _body.begin() + off + len);
+            if (dataFrames++ == 0) {
+                dataOff = off;
+                dataLen = len;
+            } else {
+                response.insert(response.end(), _body.begin() + off, _body.begin() + off + len);
+            }
         }
         off += len;
     }
     if (off != _body.size()) return finish(CallResult::Malformed);
+
+    if (dataFrames == 1) {
+        // The usual case: move the body into `response` and slide the
+        // payload to the front, instead of copying it (a 21 KB history
+        // response would otherwise need 42 KB at peak).
+        response.swap(_body);
+        memmove(response.data(), response.data() + dataOff, dataLen);
+        response.resize(dataLen);
+    } else if (dataFrames > 1) {
+        response.insert(response.begin(), _body.begin() + dataOff, _body.begin() + dataOff + dataLen);
+    }
 
     if (info.grpcStatus > 0) return finish(CallResult::GrpcError);
     if (response.empty()) return finish(CallResult::Malformed);

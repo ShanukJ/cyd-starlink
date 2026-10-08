@@ -15,6 +15,7 @@ enum class CallResult : uint8_t {
     GrpcError,      // the dish answered with a non-zero grpc-status
     Malformed,      // body framing was invalid
     TooLarge,       // response exceeded the buffer limit
+    OutOfMemory,    // no heap for the response (never aborts)
 };
 
 const char* callResultName(CallResult r);
@@ -31,8 +32,12 @@ struct CallInfo {
 class StarlinkTransport {
 public:
     virtual ~StarlinkTransport() = default;
-    virtual CallResult call(const char* host, const uint8_t* request, size_t requestLen,
+    // `sizeHint`: expected response size; reserved up front in one block so
+    // the buffer doesn't grow (and need old + new copies) mid-transfer.
+    virtual CallResult call(const char* host, const uint8_t* request, size_t requestLen, size_t sizeHint,
                             std::vector<uint8_t>& response, CallInfo& info) = 0;
+    // Frees internal buffers (after an unusually large response).
+    virtual void releaseBuffers() {}
 };
 
 }  // namespace starlink

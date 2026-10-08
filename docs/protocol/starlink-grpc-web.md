@@ -91,6 +91,26 @@ To refresh this list after a dish firmware update, re-run reflection. The
 parser skips unknown fields, so new fields never break it. Fields that are
 renumbered or removed will simply read as unavailable.
 
+## get_history
+
+`get_history` is field **1007** of `Request` (`FA 3E 00`). The response
+carries `dish_get_history = 2006`, a `DishGetHistoryResponse`:
+
+```
+current = 1                      uint64, samples taken since dish boot
+pop_ping_drop_rate = 1001        packed float[900]
+pop_ping_latency_ms = 1002       packed float[900]
+downlink_throughput_bps = 1003   packed float[900]
+uplink_throughput_bps = 1004     packed float[900]
+outages = 1009, power_in = 1010, event_log = 1011   (not used)
+```
+
+The arrays are per-second ring buffers covering 15 minutes. The newest
+sample is at index `(current - 1) % 900`. If `current < 900` (the dish
+booted less than 15 minutes ago), only the first `current` entries are
+valid. The response is about 21 KB (21,132 bytes of protobuf) and takes
+about 125 ms to fetch from the ESP32.
+
 ## Proto3 default values
 
 Proto3 does not transmit scalars that hold their default value (0, false,

@@ -2,6 +2,7 @@
 
 #include <vector>
 
+#include "HistoryDecoder.h"
 #include "StarlinkStatus.h"
 #include "StarlinkTransport.h"
 
@@ -22,6 +23,12 @@ public:
     explicit StarlinkClient(StarlinkTransport& transport) : _transport(transport) {}
 
     ClientResult getStatus(const char* host, StarlinkStatus& out);
+
+    // Fetches the dish's 15-minute per-second history (~21 KB). `out` points
+    // into an internal buffer: use it before the next call, then call
+    // releaseBuffers() to give the memory back.
+    ClientResult getHistory(const char* host, DishHistory& out);
+    void releaseBuffers();
 
     CallResult transportResult() const { return _lastCall; }
     const CallInfo& callInfo() const { return _info; }

@@ -60,6 +60,24 @@ optional fields at all is ONLINE.
 Each state comes from a single sample. Smoothing, if needed, belongs in the
 UI layer.
 
+## History
+
+`HistoryBuffer` ([HistoryBuffer.h](../../firmware/src/starlink/HistoryBuffer.h))
+keeps 15 minutes as 450 two-second slots, each holding download, upload and
+latency.
+
+- **Slots are tied to time, not to polls.** If polls fail, time still moves
+  on and the slots stay empty (NaN), so outages show as gaps in the graph.
+  Missing data is never drawn as 0.
+- **Every successful status poll records into the current slot.**
+- **After each (re)connection, the dish's own `get_history` (1 Hz) backfills
+  only the empty slots.** Two dish samples are averaged per slot, and
+  locally measured slots are never overwritten. A dish latency of 0 means no
+  ping succeeded, so it is treated as missing.
+- **The backfill needs one 22 KB block.** It is skipped, with the graphs
+  starting empty, if the heap can't provide it. A failed allocation is
+  reported as `OUT_OF_MEMORY` instead of aborting.
+
 ## Diagnostics checks
 
 `evaluateChecks()` ([Diagnostics.cpp](../../firmware/src/starlink/Diagnostics.cpp))

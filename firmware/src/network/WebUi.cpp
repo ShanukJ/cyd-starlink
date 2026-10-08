@@ -152,8 +152,10 @@ void WebUi::handleStatus() {
     j.beginObject();
     j.beginObject("monitor")
         .str("version", SM_VERSION)
+        .str("commit", SM_GIT_COMMIT)
         .str("build", SM_BUILD_DATE)
         .str("board", _deps.boardName)
+        .str("board_id", SM_BOARD_ID)
         .integer("uptime_s", millis() / 1000)
         .integer("heap", ESP.getFreeHeap())
         .endObject();

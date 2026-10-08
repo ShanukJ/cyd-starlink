@@ -70,7 +70,7 @@ void applyDisplaySettings(bool force) {
 void setup() {
     Serial.begin(115200);
 
-    LOG("BOOT", "%s v%s (built %s)", SM_PROJECT_NAME, SM_VERSION, SM_BUILD_DATE);
+    LOG("BOOT", "%s v%s (commit %s, built %s)", SM_PROJECT_NAME, SM_VERSION, SM_GIT_COMMIT, SM_BUILD_DATE);
     LOG("HW", "%s [%s]", board.profile().name, board.profile().id);
     LOG("HW", "%s rev %u, %lu MHz, flash %lu KB, free heap %lu B", ESP.getChipModel(), ESP.getChipRevision(),
         (unsigned long)getCpuFrequencyMhz(), (unsigned long)(ESP.getFlashChipSize() / 1024),

@@ -163,7 +163,7 @@ function render(s){
   const dev=$('device');dev.textContent='';
   for(const [k,v] of [['Firmware','v'+s.monitor.version],['Built',s.monitor.build],['Board',s.monitor.board],
       ['Dish',s.dish.hardware||'--'],['Dish firmware',s.dish.software||'--'],['Free memory',Math.round(s.monitor.heap/1024)+' KB'],
-      ['Monitor uptime',dur(s.monitor.uptime_s)]]){
+      ['Monitor uptime',dur(s.monitor.uptime_s)],['Commit',s.monitor.commit]]){
     const dt=document.createElement('dt');dt.textContent=k;const dd=document.createElement('dd');dd.textContent=v;dev.append(dt,dd);
   }
 }

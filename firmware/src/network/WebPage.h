@@ -21,7 +21,8 @@ h2{font-size:13px;letter-spacing:.06em;color:var(--muted);margin:0 0 10px;font-w
 .row{display:flex;justify-content:space-between;align-items:center;gap:8px}
 .row h2{margin:0}
 label{display:block;font-size:14px;color:var(--muted);margin:10px 0 4px}
-input,select{width:100%;padding:10px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--text);font-size:16px}
+input,select{width:100%;padding:10px;border-radius:8px;border:1px solid var(--line);background-color:var(--bg);color:var(--text);font-size:16px}
+select{padding-right:40px;appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%238b949e' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;background-size:12px 8px}
 input[type=range]{padding:0;accent-color:var(--accent)}
 input:focus,select:focus{outline:2px solid var(--accent);border-color:transparent}
 .hint{font-size:13px;color:var(--muted);margin:4px 0 0}

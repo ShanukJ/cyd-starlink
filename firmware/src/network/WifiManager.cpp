@@ -2,6 +2,7 @@
 
 #include <WiFi.h>
 #include <esp_random.h>
+#include <string.h>
 
 #include "../utils/Log.h"
 
@@ -9,7 +10,6 @@ namespace net {
 
 namespace {
 
-constexpr const char* kHostname = "starlink-monitor";
 constexpr uint32_t kConnectTimeoutMs = 20000;
 constexpr uint32_t kMinBackoffMs = 2000;
 constexpr uint32_t kMaxBackoffMs = 60000;
@@ -49,8 +49,12 @@ bool reached(uint32_t now, uint32_t deadline) { return static_cast<int32_t>(now 
 
 }  // namespace
 
-void WifiManager::begin(const config::Settings& settings) {
-    _settings = settings;
+void WifiManager::begin(config::SettingsStore& settings) {
+    _store = &settings;
+    const config::Settings s = settings.get();
+    _settingsVersion = settings.version();
+    strlcpy(_ssid, s.wifiSsid, sizeof(_ssid));
+    strlcpy(_password, s.wifiPassword, sizeof(_password));
 
     WiFi.onEvent(
         [](arduino_event_id_t, arduino_event_info_t info) {
@@ -67,7 +71,7 @@ void WifiManager::begin(const config::Settings& settings) {
     // 40-330 ms per dish request with it on).
     WiFi.setSleep(false);
 
-    _sta = _settings.hasWifi() ? StaState::WaitingRetry : StaState::NotConfigured;
+    _sta = _ssid[0] ? StaState::WaitingRetry : StaState::NotConfigured;
     _nextAttempt = millis();
     publish();
 }
@@ -79,19 +83,47 @@ WifiStatus WifiManager::status() const {
 
 void WifiManager::loop() {
     step(millis());
-    _portal.loop();
     publish();
 }
 
+// New credentials saved elsewhere (web UI, factory reset) take effect here.
+void WifiManager::checkCredentials(uint32_t now) {
+    const uint32_t v = _store->version();
+    if (v == _settingsVersion) return;
+    _settingsVersion = v;
+    const config::Settings s = _store->get();
+    if (strcmp(s.wifiSsid, _ssid) == 0 && strcmp(s.wifiPassword, _password) == 0) return;
+
+    strlcpy(_ssid, s.wifiSsid, sizeof(_ssid));
+    strlcpy(_password, s.wifiPassword, sizeof(_password));
+    _failures = 0;
+    _lastError = "";
+    // Treat it like a fresh boot for the auto-portal rule: if the new
+    // credentials don't work, setup reopens instead of retrying forever.
+    _everConnected = false;
+    _closePortalOnConnect = _apActive;
+    if (_ssid[0]) {
+        LOG("WIFI", "New credentials for \"%s\" - reconnecting", _ssid);
+        _sta = StaState::WaitingRetry;
+        _nextAttempt = now;
+        _savePending = true;
+    } else {
+        LOG("WIFI", "WiFi credentials cleared");
+        WiFi.disconnect();
+        _sta = StaState::NotConfigured;
+    }
+}
+
 void WifiManager::step(uint32_t now) {
-    if (_portalRequested.exchange(false) && !_portal.active()) startPortal(now, "requested");
-    if (_portalCloseRequested.exchange(false) && _portal.active() && _settings.hasWifi()) {
+    checkCredentials(now);
+    if (_portalRequested.exchange(false) && !_apActive) startPortal(now, "requested");
+    if (_portalCloseRequested.exchange(false) && _apActive && _ssid[0]) {
         stopPortal("closed on device");
     }
 
     switch (_sta) {
         case StaState::NotConfigured:
-            if (!_portal.active()) startPortal(now, "no saved network");
+            if (!_apActive) startPortal(now, "no saved network");
             break;
 
         case StaState::WaitingRetry:
@@ -99,7 +131,7 @@ void WifiManager::step(uint32_t now) {
             // A station connect attempt scans channels, which disrupts phones
             // on the setup AP. Hold off while someone is configuring, unless
             // they just asked us to connect.
-            if (_portal.active() && _portalClients > 0 && !_savePending) {
+            if (_apActive && _portalClients > 0 && !_savePending) {
                 _nextAttempt = now + 5000;
                 break;
             }
@@ -139,11 +171,11 @@ void WifiManager::step(uint32_t now) {
             break;
     }
 
-    if (!_everConnected && _failures >= kFailuresBeforePortal && !_portal.active()) {
+    if (!_everConnected && _failures >= kFailuresBeforePortal && !_apActive) {
         startPortal(now, "cannot join saved network");
     }
 
-    if (_portal.active()) {
+    if (_apActive) {
         _portalClients = WiFi.softAPgetStationNum();
         if (_portalClients > 0) _portalLastActivity = now;
         if (_sta == StaState::Connected) {
@@ -158,14 +190,14 @@ void WifiManager::step(uint32_t now) {
 
 void WifiManager::startConnect(uint32_t now) {
     if (_failures) {
-        LOG("WIFI", "Connecting to \"%s\" (attempt %u)...", _settings.wifiSsid, _failures + 1);
+        LOG("WIFI", "Connecting to \"%s\" (attempt %u)...", _ssid, _failures + 1);
     } else {
-        LOG("WIFI", "Connecting to \"%s\"...", _settings.wifiSsid);
+        LOG("WIFI", "Connecting to \"%s\"...", _ssid);
     }
     WiFi.disconnect();
     vTaskDelay(pdMS_TO_TICKS(100));  // let the disconnect event from the old link arrive first
     s_attemptDisconnects = s_disconnectCount;
-    WiFi.begin(_settings.wifiSsid, _settings.wifiPassword[0] ? _settings.wifiPassword : nullptr);
+    WiFi.begin(_ssid, _password[0] ? _password : nullptr);
     _attemptStart = now;
     _sta = StaState::Connecting;
     _savePending = false;
@@ -180,7 +212,7 @@ void WifiManager::onConnectFailed(uint32_t now, const char* why) {
     WiFi.disconnect();
     _sta = StaState::WaitingRetry;
     _nextAttempt = now + backoff;
-    LOG("WIFI", "Could not connect to \"%s\" (%s), retry in %lu s", _settings.wifiSsid, why,
+    LOG("WIFI", "Could not connect to \"%s\" (%s), retry in %lu s", _ssid, why,
         (unsigned long)(backoff / 1000));
 }
 
@@ -194,15 +226,14 @@ void WifiManager::startPortal(uint32_t now, const char* why) {
         return;
     }
     strlcpy(_apIp, WiFi.softAPIP().toString().c_str(), sizeof(_apIp));
-    _portal.start(
-        &_settings, [this](const config::Settings& s) { applySettings(s); }, [this] { return status(); });
+    _apActive = true;  // WebUi starts captive DNS and redirects
     _portalLastActivity = now;
     _closePortalOnConnect = false;
     LOG("WIFI", "Setup AP \"%s\" password \"%s\" at http://%s/ (%s)", s_apSsid, s_apPassword, _apIp, why);
 }
 
 void WifiManager::stopPortal(const char* why) {
-    _portal.stop();
+    _apActive = false;
     _portalClients = 0;
     WiFi.softAPdisconnect(true);
     WiFi.mode(WIFI_STA);
@@ -210,22 +241,10 @@ void WifiManager::stopPortal(const char* why) {
     LOG("WIFI", "Setup AP closed (%s)", why);
 }
 
-void WifiManager::applySettings(const config::Settings& s) {
-    _settings = s;
-    config::save(_settings);
-    _failures = 0;
-    _lastError = "";
-    _sta = StaState::WaitingRetry;
-    _nextAttempt = millis();
-    _savePending = true;
-    _closePortalOnConnect = true;
-    publish();  // so /status never reports the previous attempt's failure
-}
-
 void WifiManager::publish() {
     WifiStatus s;
     s.sta = _sta;
-    strlcpy(s.ssid, _settings.wifiSsid, sizeof(s.ssid));
+    strlcpy(s.ssid, _ssid, sizeof(s.ssid));
     if (_sta == StaState::Connected) {
         s.ip = static_cast<uint32_t>(WiFi.localIP());
         s.rssi = _rssi;
@@ -236,7 +255,7 @@ void WifiManager::publish() {
         s.retryInMs = reached(now, _nextAttempt) ? 0 : _nextAttempt - now;
     }
     s.lastError = _lastError;
-    s.portalActive = _portal.active();
+    s.portalActive = _apActive;
     if (s.portalActive) {
         strlcpy(s.apSsid, s_apSsid, sizeof(s.apSsid));
         strlcpy(s.apPassword, s_apPassword, sizeof(s.apPassword));

@@ -10,7 +10,6 @@ namespace starlink {
 
 namespace {
 
-constexpr uint32_t kPollIntervalMs = 2000;
 constexpr uint32_t kMinBackoffMs = 2000;
 constexpr uint32_t kMaxBackoffMs = 10000;  // keep it short: the dish reboots in ~1 min
 constexpr uint32_t kSummaryIntervalMs = 5 * 60 * 1000;
@@ -82,7 +81,8 @@ void logStatus(const StarlinkStatus& s) {
 
 }  // namespace
 
-void StarlinkService::loop(uint32_t now, bool networkUp, const char* host) {
+void StarlinkService::loop(uint32_t now, bool networkUp, const char* host, uint32_t pollMs) {
+    _pollMs = pollMs;
     {
         // Time moves on even when polls fail, so outages show as gaps.
         std::lock_guard<std::mutex> lock(_historyMutex);
@@ -182,7 +182,7 @@ void StarlinkService::poll(uint32_t now) {
         _hasStatus = true;
         _lastOkMs = now;
         _lastRttMs = info.elapsedMs;
-        _nextPoll = now + kPollIntervalMs;
+        _nextPoll = now + _pollMs;
         _pollsSinceSummary++;
         if (now - _lastSummaryMs >= kSummaryIntervalMs) {
             LOG("STARLINK", "OK: %lu polls in the last %lu min, last %lu ms", (unsigned long)_pollsSinceSummary,

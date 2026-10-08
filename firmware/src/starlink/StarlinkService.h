@@ -17,7 +17,7 @@ public:
     StarlinkService() : _client(_transport) {}
 
     // Network task only. `networkUp`: station connected and not in setup.
-    void loop(uint32_t now, bool networkUp, const char* host);
+    void loop(uint32_t now, bool networkUp, const char* host, uint32_t pollMs);
 
     StarlinkSnapshot snapshot() const;  // any task
 
@@ -37,6 +37,7 @@ private:
     LinkState _state = LinkState::Waiting;
     char _host[16] = "";
     uint32_t _nextPoll = 0;
+    uint32_t _pollMs = 2000;
     uint16_t _failures = 0;
     const char* _lastError = "";
     ClientResult _lastResult = ClientResult::Ok;

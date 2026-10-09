@@ -6,9 +6,9 @@ dish. That is usually the Starlink router's own network.
 
 ## Option 1: web installer (recommended)
 
-1. Open the project's web installer in **Chrome or Edge on a computer**.
-   It is published on the repository's GitHub Pages site with every
-   release. Safari, Firefox and phones can't access USB serial ports.
+1. Open the web installer, **[cyd-starlink.shanukj.me](https://cyd-starlink.shanukj.me)**,
+   in **Chrome or Edge on a computer**. It is updated with every release.
+   Safari, Firefox and phones can't access USB serial ports.
 2. Choose your board.
 3. Plug the board in, click **Connect**, pick its serial port (often
    "USB Serial" or "CH340") and choose **Install**.
@@ -19,7 +19,7 @@ dish. That is usually the Starlink router's own network.
 
 ## Option 2: esptool
 
-Each release (on the repository's **Releases** page) has two images per board:
+Each [release](https://github.com/ShanukJ/cyd-starlink/releases) has two images per board:
 
 | File | Flash at | Use |
 |---|---|---|

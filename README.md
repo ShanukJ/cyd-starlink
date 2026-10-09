@@ -5,6 +5,8 @@ A standalone Starlink status display for cheap ESP32 touchscreen boards
 local network. No cloud, no Starlink account, no Home Assistant, no MQTT,
 no extra server.
 
+**[Install it from your browser → cyd-starlink.shanukj.me](https://cyd-starlink.shanukj.me)**
+
 <p>
   <img src="docs/images/dashboard-portrait.png" width="200" alt="Dashboard: state, download and upload with 15-minute peaks, latency, obstruction, signal, uptime">
   <img src="docs/images/history-portrait.png" width="200" alt="History: 15-minute throughput and latency graphs">
@@ -18,8 +20,8 @@ no extra server.
   <img src="docs/images/diagnostics-landscape.png" width="400" alt="Diagnostics in landscape">
 </p>
 
-> **Status: v0.1.0 release candidate.** Runs on the ESP32-2432S028 (ST7789
-> version), tested against a real dish.
+> **Status: v0.1.0.** Runs on the ESP32-2432S028 (ST7789 version), tested
+> against a real dish.
 
 ## Features
 
@@ -54,9 +56,11 @@ This board is sold with two different display chips:
 
 ## Install
 
-Use the **web installer** in Chrome or Edge on a computer: plug the
-board in over USB, pick it from the list and click **Connect**. No
-software to install. Release images for esptool are also available.
+Open the **web installer at [cyd-starlink.shanukj.me](https://cyd-starlink.shanukj.me)**
+in Chrome or Edge on a computer. Plug the board in over USB, pick it from
+the list and click **Connect**. No software to install. Release images for
+esptool are on the [Releases](https://github.com/ShanukJ/cyd-starlink/releases)
+page.
 
 → [Installation guide](docs/installation/README.md)
 

@@ -46,10 +46,10 @@ no extra server.
 
 ## Hardware
 
-| Board | Status |
-|---|---|
-| ESP32-2432S028, **ST7789** display, XPT2046 touch | ✅ supported |
-| ESP32-2432S028, ILI9341 display | not yet |
+| Board | Status | Buy |
+|---|---|---|
+| ESP32-2432S028, **ST7789** display, XPT2046 touch | ✅ supported | [AliExpress](https://s.click.aliexpress.com/e/_c4SGzjNX) |
+| ESP32-2432S028, ILI9341 display | not yet | |
 
 This board is sold with two different display chips:
 [how to tell which one you have](docs/hardware/README.md).

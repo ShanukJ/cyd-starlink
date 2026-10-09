@@ -7,7 +7,7 @@ dish. That is usually the Starlink router's own network.
 ## Option 1: web installer (recommended)
 
 1. Open the project's web installer in **Chrome or Edge on a computer**.
-   It is published on this repository's GitHub Pages site with every
+   It is published on the repository's GitHub Pages site with every
    release. Safari, Firefox and phones can't access USB serial ports.
 2. Choose your board.
 3. Plug the board in, click **Connect**, pick its serial port (often

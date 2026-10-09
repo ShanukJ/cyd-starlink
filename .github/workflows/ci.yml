@@ -2,17 +2,36 @@ name: CI
 
 # Every push / PR: host unit tests + release builds for all boards.
 # Tag v*: additionally publish a GitHub Release and deploy the web flasher
-# (with the firmware) to GitHub Pages. The flasher must serve the firmware
-# itself: browsers can't fetch GitHub Release assets cross-origin.
+#         (with its firmware) to GitHub Pages.
+# Manual run ("Run workflow" on main, give a tag): (re)deploy the web
+#         flasher for an existing release. No GitHub Release.
+# The flasher must serve the firmware itself: browsers can't fetch GitHub
+# Release assets cross-origin.
+#
+# GitHub Pages setup (one time, see docs/development/release.md):
+#   Settings -> Pages -> Source: GitHub Actions
+#   Settings -> Environments -> github-pages -> add tag rule "v*"
+#   (without the tag rule, tag-triggered deploys are rejected; manual runs
+#    from main still work)
 
 on:
   push:
     branches: [main]
     tags: ["v*"]
   pull_request:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to deploy to the web flasher (e.g. v0.1.0)"
+        required: true
 
 permissions:
   contents: read
+
+env:
+  # The ref being built: the dispatched tag, or whatever triggered the run.
+  BUILD_REF: ${{ inputs.tag || github.ref_name }}
+  IS_RELEASE: ${{ startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch' }}
 
 jobs:
   build:
@@ -20,6 +39,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ inputs.tag || github.ref }}
           fetch-depth: 0  # tags, for the version
 
       - uses: actions/setup-python@v5
@@ -41,10 +61,10 @@ jobs:
         run: pio test -e native
 
       - name: Tag matches VERSION file
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: env.IS_RELEASE == 'true'
         run: |
-          if [ "${GITHUB_REF_NAME#v}" != "$(cat VERSION)" ]; then
-            echo "Tag $GITHUB_REF_NAME does not match VERSION $(cat VERSION)"; exit 1
+          if [ "${BUILD_REF#v}" != "$(cat VERSION)" ]; then
+            echo "::error::Tag $BUILD_REF does not match VERSION $(cat VERSION)"; exit 1
           fi
 
       - name: Build all boards
@@ -57,7 +77,7 @@ jobs:
           path: dist/firmware
 
       - uses: actions/upload-pages-artifact@v3
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: env.IS_RELEASE == 'true'
         with:
           path: dist/site
 
@@ -80,8 +100,8 @@ jobs:
             --title "Starlink Monitor ${GITHUB_REF_NAME#v}" --generate-notes \
             firmware/*.bin firmware/SHA256SUMS
 
-  pages:
-    if: startsWith(github.ref, 'refs/tags/v')
+  flasher:
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
     needs: build
     runs-on: ubuntu-latest
     permissions:
@@ -90,6 +110,7 @@ jobs:
     environment:
       name: github-pages
       url: ${{ steps.deploy.outputs.page_url }}
+    concurrency: github-pages  # never two deploys at once
     steps:
       - id: deploy
         uses: actions/deploy-pages@v4

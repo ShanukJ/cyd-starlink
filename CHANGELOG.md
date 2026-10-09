@@ -3,7 +3,7 @@
 All notable changes are listed here. Versions follow
 [semantic versioning](https://semver.org).
 
-## [0.1.0] - unreleased
+## [0.1.0] - 2026-10-09
 
 First release. Supports the ESP32-2432S028 ("Cheap Yellow Display")
 **ST7789** version.

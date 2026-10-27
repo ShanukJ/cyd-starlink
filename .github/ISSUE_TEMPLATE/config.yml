@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/ShanukJ/cyd-starlink/security/advisories/new
+    about: Please report security problems privately, not in a public issue. See SECURITY.md.
+  - name: Installation help and troubleshooting
+    url: https://github.com/ShanukJ/cyd-starlink/blob/main/docs/troubleshooting.md
+    about: Common installation, WiFi and Starlink connection problems.

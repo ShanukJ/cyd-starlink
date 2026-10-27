@@ -1,0 +1,66 @@
+name: Bug report
+description: Something doesn't work as documented.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting! Check [troubleshooting](https://github.com/ShanukJ/cyd-starlink/blob/main/docs/troubleshooting.md) first.
+        **Security problems:** report them privately instead (see SECURITY.md).
+        Please remove WiFi names, dish/router IDs and other personal details from anything you paste.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, and what happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. ...
+        2. ...
+  - type: input
+    id: firmware
+    attributes:
+      label: Firmware version
+      description: From the boot log (`[BOOT] Starlink Monitor v...`) or the web page's Device section.
+      placeholder: "0.1.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: board
+    attributes:
+      label: Board
+      options:
+        - ESP32-2432S028 (ST7789)
+        - Other / not sure (describe below)
+    validations:
+      required: true
+  - type: input
+    id: dish
+    attributes:
+      label: Dish hardware and software version
+      description: From the diagnostics page, if the monitor reaches the dish.
+      placeholder: "rev4_panda_prod2, 2026.09.18.mr87170.1.55184.2"
+  - type: dropdown
+    id: install
+    attributes:
+      label: How did you install it?
+      options:
+        - Web installer
+        - esptool (release image)
+        - Built from source
+  - type: textarea
+    id: log
+    attributes:
+      label: Serial log
+      description: Boot log at 115200 baud, up to the problem. Remove your WiFi name.
+      render: text
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else?
+      description: Screenshots or photos of the screen help for display problems.

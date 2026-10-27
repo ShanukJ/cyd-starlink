@@ -1,0 +1,66 @@
+name: Hardware compatibility report
+description: Report how the firmware works on a board, including untested or unsupported ones.
+labels: ["hardware"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Reports from real boards decide which hardware gets supported. Please don't guess: only report what you observed.
+        See [supported hardware](https://github.com/ShanukJ/cyd-starlink/blob/main/docs/hardware/README.md) for how to identify your board.
+  - type: input
+    id: board
+    attributes:
+      label: Board model
+      description: As printed on the board or the listing.
+      placeholder: "ESP32-2432S028R"
+    validations:
+      required: true
+  - type: input
+    id: display
+    attributes:
+      label: Display controller
+      description: From the listing, the box, or "unknown".
+      placeholder: "ST7789 / ILI9341 / unknown"
+    validations:
+      required: true
+  - type: input
+    id: source
+    attributes:
+      label: Where did you buy it?
+      description: Seller or listing, without referral/affiliate codes. Helps others find the same revision.
+  - type: input
+    id: usb
+    attributes:
+      label: USB ports
+      placeholder: "micro-USB only / micro-USB + USB-C"
+  - type: input
+    id: firmware
+    attributes:
+      label: Firmware version and profile flashed
+      placeholder: "0.1.0, esp32-2432s028-st7789"
+    validations:
+      required: true
+  - type: textarea
+    id: panel-log
+    attributes:
+      label: "[DISPLAY] lines from the boot log"
+      description: Paste the lines starting with `[DISPLAY]` (they include the panel's module ID and power mode).
+      render: text
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Hardware test screen results
+      description: Long-press the dashboard for 1.5 s to open it. Tick what works correctly.
+      options:
+        - label: Picture appears (not blank or garbled)
+        - label: Colour bars correct (RED is red, background is dark)
+        - label: Touch crosshair lands under the finger in all four rotations
+        - label: Brightness slider dims the backlight
+        - label: WiFi connects and Starlink data appears
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes and photos
+      description: Anything that looked wrong, plus photos of the screen and the back of the board.

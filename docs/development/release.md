@@ -50,18 +50,30 @@ cd dist/site && python3 -m http.server 8000   # open http://localhost:8000 in Ch
 
 ## Cutting a release
 
-1. Update `VERSION` and `CHANGELOG.md`, and commit.
-2. Tag and push:
+Releases are made by the maintainer only, from reviewed code on `main`.
+
+1. Update `VERSION` and `CHANGELOG.md` through a normal pull request, and
+   merge it.
+2. Tag the merged commit on `main` and push the tag:
    ```sh
-   git tag v0.1.0 && git push origin main v0.1.0
+   git checkout main && git pull
+   git tag -a v0.1.0 -m "Starlink Monitor 0.1.0" && git push origin v0.1.0
    ```
 3. CI ([.github/workflows/ci.yml](../../.github/workflows/ci.yml)):
    1. runs the host tests;
-   2. checks the tag matches `VERSION`;
+   2. runs the release checks: the ref is a tag, it matches `VERSION`, and
+      the tagged commit is already on `main`. A tag on an unmerged branch
+      can't release;
    3. builds every board;
-   4. creates the GitHub Release with the `.bin` files and `SHA256SUMS`;
-   5. deploys `dist/site` (the web flasher with its firmware) to GitHub
+   4. waits for approval in the **`release` environment**, if you've set
+      required reviewers there (recommended);
+   5. creates the GitHub Release with the `.bin` files and `SHA256SUMS`;
+   6. deploys `dist/site` (the web flasher with its firmware) to GitHub
       Pages.
+
+Pull requests, including from forks, run only the tests and builds. They
+get a read-only token and no secrets, and they can't reach the release
+or deploy jobs.
 
 The flasher has to serve the firmware itself: browsers can't download
 GitHub Release assets from another site.

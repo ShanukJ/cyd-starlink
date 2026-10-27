@@ -4,6 +4,50 @@ Thanks for helping. This project aims to be a dependable appliance, so
 changes need to stay small, readable and tested on real hardware where
 hardware is involved.
 
+By taking part you agree to the [Code of Conduct](CODE_OF_CONDUCT.md).
+Report security problems privately as described in
+[SECURITY.md](SECURITY.md), not in a public issue.
+
+## How to contribute
+
+1. **Discuss bigger changes first.** For new features, new boards or
+   anything that changes behaviour, open an issue (there are templates
+   for bugs, hardware compatibility and features) before writing code.
+   Small fixes can go straight to a pull request.
+2. **Fork** the repository on GitHub and clone your fork:
+   ```sh
+   git clone https://github.com/<you>/cyd-starlink.git
+   cd cyd-starlink
+   git remote add upstream https://github.com/ShanukJ/cyd-starlink.git
+   ```
+3. **Create a branch** from an up-to-date `main`, named for the change:
+   ```sh
+   git fetch upstream && git checkout -b fix/history-gaps upstream/main
+   ```
+   Use prefixes such as `fix/`, `feat/`, `board/` (new hardware) or
+   `docs/`.
+4. **Build and test** (see [Development setup](#development-setup)):
+   ```sh
+   cd firmware
+   pio test -e native                  # must pass; no hardware needed
+   pio run -e cyd_2432s028_st7789      # every board env must build
+   ```
+   If you have the hardware, flash it and check the change on the
+   device. Pull requests that touch hardware or the UI need that.
+5. **Commit** in small, self-contained steps with messages that say what
+   and why. Don't commit build output (`.pio/`, `dist/`).
+6. **Open a pull request** against `main`. The template asks for a
+   summary, how you tested, the affected hardware profiles and firmware
+   compatibility. Fill it in and add screenshots for UI changes.
+7. **CI runs automatically:** host unit tests plus a firmware build for
+   every board. It needs no secrets, so it works the same from a fork.
+   GitHub may ask a maintainer to approve the first run for a new
+   contributor. A pull request is merged once CI passes and a
+   maintainer has reviewed it.
+
+Releases are made by the maintainer from `main`; contributors never need
+to tag or release anything. See [releasing](docs/development/release.md).
+
 ## Development setup
 
 - [PlatformIO](https://platformio.org/) (CLI or the VS Code extension)
@@ -76,6 +120,8 @@ logic of that kind needs tests.
 
 ## Reporting bugs
 
-Include the boot log (115200 baud), the firmware version (boot log or the
-web page's Device section), your board, and the dish's hardware and
-software version from the diagnostics page.
+Use the issue forms (**New issue**): bug report, hardware compatibility
+report or feature request. They ask for the boot log (115200 baud), the
+firmware version (boot log or the web page's Device section), your board,
+and the dish's hardware and software version from the diagnostics page.
+Remove WiFi names and other personal details from logs before posting.
